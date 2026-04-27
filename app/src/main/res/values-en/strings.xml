@@ -6,9 +6,20 @@
     <string name="nav_mylist">My list</string>
     <string name="nav_stats">Stats</string>
 
-    <!-- Placeholder texts (Phase 0) -->
-    <string name="screen_search_placeholder">Movie search</string>
+    <!-- Placeholder texts -->
     <string name="screen_mylist_placeholder">My movie list</string>
     <string name="screen_stats_placeholder">Watching statistics</string>
     <string name="screen_detail_placeholder">Movie detail (TMDB ID: %1$d)</string>
+
+    <!-- Search screen -->
+    <string name="search_field_placeholder">Search a movie…</string>
+    <string name="search_field_label">Movie search</string>
+    <string name="search_clear_action">Clear search</string>
+    <string name="search_state_idle">Start typing a movie title</string>
+    <string name="search_state_empty">No results for this query</string>
+    <string name="search_state_error">Search failed</string>
+
+    <!-- Common -->
+    <string name="common_retry">Try again</string>
+    <string name="poster_placeholder_description">Poster not available</string>
 </resources>

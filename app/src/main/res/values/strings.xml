@@ -6,9 +6,20 @@
     <string name="nav_mylist">Môj zoznam</string>
     <string name="nav_stats">Štatistiky</string>
 
-    <!-- Placeholder texts (Phase 0) -->
-    <string name="screen_search_placeholder">Vyhľadávanie filmov</string>
+    <!-- Placeholder texts -->
     <string name="screen_mylist_placeholder">Môj zoznam filmov</string>
     <string name="screen_stats_placeholder">Štatistiky sledovania</string>
     <string name="screen_detail_placeholder">Detail filmu (TMDB ID: %1$d)</string>
+
+    <!-- Search screen -->
+    <string name="search_field_placeholder">Hľadaj film…</string>
+    <string name="search_field_label">Vyhľadávanie filmu</string>
+    <string name="search_clear_action">Vymazať vyhľadávanie</string>
+    <string name="search_state_idle">Začni písať názov filmu</string>
+    <string name="search_state_empty">Pre tento výraz sme nič nenašli</string>
+    <string name="search_state_error">Vyhľadávanie zlyhalo</string>
+
+    <!-- Common -->
+    <string name="common_retry">Skúsiť znova</string>
+    <string name="poster_placeholder_description">Plagát filmu nie je dostupný</string>
 </resources>
