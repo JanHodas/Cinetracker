@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cinetracker.CineTrackApplication
+import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.repository.MovieRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -19,6 +20,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -28,18 +31,23 @@ import kotlinx.coroutines.flow.stateIn
  * The ViewModel survives configuration changes, so the rotation test in the spec passes
  * automatically: query text and last results are preserved without any extra plumbing.
  *
+ * If a search fails because of a network issue, the screen also auto-recovers when
+ * connectivity returns: an internal observer watches [NetworkConnectivityObserver] and
+ * fires [retry] on the offline → online transition while the UI is in [SearchUiState.Error].
+ *
  * @see DEBOUNCE_MILLIS for the typing settle delay
  * @see MIN_QUERY_LENGTH minimum number of characters before a TMDB call is fired
  */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val movieRepository: MovieRepository,
+    networkConnectivityObserver: NetworkConnectivityObserver,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    /** Bumped by [retry] to re-fire the last query after a transient failure. */
+    /** Bumped by [retry] (and by the auto-retry observer below) to re-fire the last query. */
     private val retryTick = MutableStateFlow(0)
 
     val uiState: StateFlow<SearchUiState> = combine(
@@ -73,6 +81,19 @@ class SearchViewModel(
             initialValue = SearchUiState.Idle,
         )
 
+    init {
+        // Auto-recover: when the device transitions offline → online and we're
+        // currently showing an error, transparently retry the last query.
+        networkConnectivityObserver.isOnline
+            .distinctUntilChanged()
+            .onEach { online ->
+                if (online && uiState.value is SearchUiState.Error) {
+                    retry()
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
     fun onQueryChange(newQuery: String) {
         _query.value = newQuery
     }
@@ -94,7 +115,10 @@ class SearchViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CineTrackApplication
-                SearchViewModel(app.serviceLocator.movieRepository)
+                SearchViewModel(
+                    movieRepository = app.serviceLocator.movieRepository,
+                    networkConnectivityObserver = app.serviceLocator.networkConnectivityObserver,
+                )
             }
         }
     }
