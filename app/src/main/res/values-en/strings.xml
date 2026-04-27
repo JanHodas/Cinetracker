@@ -9,7 +9,18 @@
     <!-- Placeholder texts -->
     <string name="screen_mylist_placeholder">My movie list</string>
     <string name="screen_stats_placeholder">Watching statistics</string>
-    <string name="screen_detail_placeholder">Movie detail (TMDB ID: %1$d)</string>
+
+    <!-- Detail screen -->
+    <string name="detail_back">Back</string>
+    <string name="detail_title">Movie detail</string>
+    <string name="detail_overview_title">Overview</string>
+    <string name="detail_genres_title">Genres</string>
+    <string name="detail_no_overview">No overview available</string>
+    <string name="detail_runtime_minutes">%1$d min</string>
+    <string name="detail_rating_format">%1$.1f/10</string>
+    <string name="detail_add_to_list">Add to list</string>
+    <string name="detail_add_to_list_placeholder">Saving will be wired up in Phase 2</string>
+    <string name="detail_state_error">Failed to load detail</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Search a movie…</string>
