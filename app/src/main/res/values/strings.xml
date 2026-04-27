@@ -1,3 +1,14 @@
 <resources>
-    <string name="app_name">Cinetracker</string>
+    <string name="app_name">CineTrack</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_search">Hľadať</string>
+    <string name="nav_mylist">Môj zoznam</string>
+    <string name="nav_stats">Štatistiky</string>
+
+    <!-- Placeholder texts (Phase 0) -->
+    <string name="screen_search_placeholder">Vyhľadávanie filmov</string>
+    <string name="screen_mylist_placeholder">Môj zoznam filmov</string>
+    <string name="screen_stats_placeholder">Štatistiky sledovania</string>
+    <string name="screen_detail_placeholder">Detail filmu (TMDB ID: %1$d)</string>
 </resources>
