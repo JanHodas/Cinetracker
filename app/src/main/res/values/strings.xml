@@ -21,6 +21,17 @@
     <string name="detail_add_to_list">Pridať do zoznamu</string>
     <string name="detail_add_to_list_placeholder">Ukladanie pripojíme vo Fáze 2</string>
     <string name="detail_state_error">Detail sa nepodarilo načítať</string>
+    <string name="detail_status_title">Stav sledovania</string>
+    <string name="detail_status_want">Chcem pozrieť</string>
+    <string name="detail_status_watching">Pozerám</string>
+    <string name="detail_status_watched">Pozreté</string>
+    <string name="detail_your_rating">Tvoje hodnotenie</string>
+    <string name="detail_rating_value">%1$.0f / 10</string>
+    <string name="detail_note_label">Osobná poznámka</string>
+    <string name="detail_note_placeholder">Napíš si poznámku k filmu…</string>
+    <string name="detail_saved_snackbar">Film uložený do zoznamu</string>
+    <string name="detail_removed_snackbar">Film odstránený zo zoznamu</string>
+    <string name="detail_remove_from_list">Odstrániť zo zoznamu</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Hľadaj film…</string>
@@ -29,6 +40,17 @@
     <string name="search_state_idle">Začni písať názov filmu</string>
     <string name="search_state_empty">Pre tento výraz sme nič nenašli</string>
     <string name="search_state_error">Vyhľadávanie zlyhalo</string>
+
+    <!-- MyList screen -->
+    <string name="mylist_title">Môj zoznam</string>
+    <string name="mylist_filter_all">Všetky</string>
+    <string name="mylist_filter_want">Chcem pozrieť</string>
+    <string name="mylist_filter_watching">Pozerám</string>
+    <string name="mylist_filter_watched">Pozreté</string>
+    <string name="mylist_empty">Zatiaľ si nepridala žiadny film.\nHľadaj a pridávaj cez vyhľadávanie.</string>
+    <string name="mylist_empty_filtered">Žiadne filmy v tejto kategórii.</string>
+    <string name="mylist_deleted_snackbar">Film odstránený</string>
+    <string name="mylist_undo">Späť</string>
 
     <!-- Common -->
     <string name="common_retry">Skúsiť znova</string>

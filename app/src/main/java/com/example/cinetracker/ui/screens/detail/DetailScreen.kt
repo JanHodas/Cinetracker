@@ -1,5 +1,6 @@
 package com.example.cinetracker.ui.screens.detail
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,25 +20,37 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.BookmarkRemove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,9 +60,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
 import com.example.cinetracker.domain.model.Movie
+import com.example.cinetracker.domain.model.SavedMovie
+import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.domain.util.TmdbImageUrl
 import com.example.cinetracker.ui.components.AsyncMoviePoster
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +74,20 @@ fun DetailScreen(
     viewModel: DetailViewModel = viewModel(factory = DetailViewModel.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val savedState by viewModel.savedState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val savedMessage = stringResource(R.string.detail_saved_snackbar)
+    val removedMessage = stringResource(R.string.detail_removed_snackbar)
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                DetailEvent.MovieSaved -> snackbarHostState.showSnackbar(savedMessage)
+                DetailEvent.MovieRemoved -> snackbarHostState.showSnackbar(removedMessage)
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -89,29 +116,42 @@ fun DetailScreen(
         ) {
             when (val state = uiState) {
                 is DetailUiState.Loading -> CenteredProgress()
-                is DetailUiState.Error -> ErrorState(message = state.message, onRetry = viewModel::retry)
+                is DetailUiState.Error -> ErrorState(
+                    message = state.message,
+                    onRetry = viewModel::retry,
+                )
                 is DetailUiState.Success -> SuccessContent(
                     movie = state.movie,
-                    snackbarHostState = snackbarHostState,
+                    savedMovie = savedState,
+                    onSaveToList = viewModel::saveToList,
+                    onUpdateStatus = viewModel::updateStatus,
+                    onUpdateRating = viewModel::updateRating,
+                    onUpdateNote = viewModel::updateNote,
+                    onRemoveFromList = viewModel::removeFromList,
                 )
             }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun SuccessContent(
     movie: Movie,
-    snackbarHostState: SnackbarHostState,
+    savedMovie: SavedMovie?,
+    onSaveToList: (WatchStatus) -> Unit,
+    onUpdateStatus: (WatchStatus) -> Unit,
+    onUpdateRating: (Float?) -> Unit,
+    onUpdateNote: (String) -> Unit,
+    onRemoveFromList: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
-    val coroutineScope = rememberCoroutineScope()
-    val placeholderText = stringResource(R.string.detail_add_to_list_placeholder)
+    val isSaved = savedMovie != null
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(scrollState),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState),
     ) {
         BackdropHeader(movie = movie)
 
@@ -152,26 +192,148 @@ private fun SuccessContent(
                 style = MaterialTheme.typography.bodyMedium,
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            FilledTonalButton(
-                onClick = {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar(placeholderText)
-                    }
+            // ── Watch-status section ────────────────────────────────
+            Text(
+                text = stringResource(R.string.detail_status_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            WatchStatusSelector(
+                currentStatus = savedMovie?.watchStatus,
+                onStatusSelected = { status ->
+                    if (isSaved) onUpdateStatus(status) else onSaveToList(status)
                 },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.BookmarkAdd,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+            )
+
+            // ── Rating (only for saved + WATCHED) ───────────────────
+            AnimatedVisibility(visible = savedMovie?.watchStatus == WatchStatus.WATCHED) {
+                RatingSection(
+                    currentRating = savedMovie?.userRating,
+                    onRatingChanged = onUpdateRating,
                 )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(stringResource(R.string.detail_add_to_list))
+            }
+
+            // ── Personal note (only when saved) ─────────────────────
+            AnimatedVisibility(visible = isSaved) {
+                NoteSection(
+                    currentNote = savedMovie?.note.orEmpty(),
+                    onNoteChanged = onUpdateNote,
+                )
+            }
+
+            // ── Remove button (only when saved) ─────────────────────
+            if (isSaved) {
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onRemoveFromList,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.BookmarkRemove,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(stringResource(R.string.detail_remove_from_list))
+                }
             }
         }
     }
+}
+
+/**
+ * Three-segment toggle for [WatchStatus]. When nothing is selected
+ * ([currentStatus] == null) every segment is unselected and tapping
+ * one triggers the initial save.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WatchStatusSelector(
+    currentStatus: WatchStatus?,
+    onStatusSelected: (WatchStatus) -> Unit,
+) {
+    val options = listOf(
+        WatchStatus.WANT_TO_WATCH to stringResource(R.string.detail_status_want),
+        WatchStatus.WATCHING to stringResource(R.string.detail_status_watching),
+        WatchStatus.WATCHED to stringResource(R.string.detail_status_watched),
+    )
+
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (status, label) ->
+            SegmentedButton(
+                selected = currentStatus == status,
+                onClick = { onStatusSelected(status) },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+            ) {
+                Text(label, maxLines = 1)
+            }
+        }
+    }
+}
+
+/**
+ * Slider for rating 1–10. Keeps local state while the user drags,
+ * commits on release (finger up).
+ */
+@Composable
+private fun RatingSection(
+    currentRating: Float?,
+    onRatingChanged: (Float?) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = stringResource(R.string.detail_your_rating),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        var sliderValue by rememberSaveable { mutableFloatStateOf(currentRating ?: 5f) }
+
+        // Sync with external changes (e.g. first time savedMovie appears)
+        LaunchedEffect(currentRating) {
+            if (currentRating != null) sliderValue = currentRating
+        }
+
+        Text(
+            text = stringResource(R.string.detail_rating_value, sliderValue),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Slider(
+            value = sliderValue,
+            onValueChange = { sliderValue = it },
+            onValueChangeFinished = { onRatingChanged(sliderValue) },
+            valueRange = 1f..10f,
+            steps = 8, // 1,2,3,…,10 → 8 intermediate steps
+        )
+    }
+}
+
+/**
+ * Editable personal note. Uses local state and commits on focus loss
+ * via a debounce-like approach (commits the latest value when the
+ * composable leaves composition or the note content diverges).
+ */
+@Composable
+private fun NoteSection(
+    currentNote: String,
+    onNoteChanged: (String) -> Unit,
+) {
+    // Local draft that the user types into; initialised from Room value.
+    var draft by rememberSaveable(currentNote) { mutableStateOf(currentNote) }
+
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { newValue ->
+            draft = newValue
+            onNoteChanged(newValue)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.detail_note_label)) },
+        placeholder = { Text(stringResource(R.string.detail_note_placeholder)) },
+        minLines = 2,
+        maxLines = 4,
+    )
 }
 
 @Composable

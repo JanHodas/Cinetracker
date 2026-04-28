@@ -21,6 +21,17 @@
     <string name="detail_add_to_list">Add to list</string>
     <string name="detail_add_to_list_placeholder">Saving will be wired up in Phase 2</string>
     <string name="detail_state_error">Failed to load detail</string>
+    <string name="detail_status_title">Watch status</string>
+    <string name="detail_status_want">Want to watch</string>
+    <string name="detail_status_watching">Watching</string>
+    <string name="detail_status_watched">Watched</string>
+    <string name="detail_your_rating">Your rating</string>
+    <string name="detail_rating_value">%1$.0f / 10</string>
+    <string name="detail_note_label">Personal note</string>
+    <string name="detail_note_placeholder">Write a note about this movie…</string>
+    <string name="detail_saved_snackbar">Movie saved to list</string>
+    <string name="detail_removed_snackbar">Movie removed from list</string>
+    <string name="detail_remove_from_list">Remove from list</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Search a movie…</string>
@@ -29,6 +40,17 @@
     <string name="search_state_idle">Start typing a movie title</string>
     <string name="search_state_empty">No results for this query</string>
     <string name="search_state_error">Search failed</string>
+
+    <!-- MyList screen -->
+    <string name="mylist_title">My list</string>
+    <string name="mylist_filter_all">All</string>
+    <string name="mylist_filter_want">Want to watch</string>
+    <string name="mylist_filter_watching">Watching</string>
+    <string name="mylist_filter_watched">Watched</string>
+    <string name="mylist_empty">You haven\'t added any movies yet.\nSearch and add via the search tab.</string>
+    <string name="mylist_empty_filtered">No movies in this category.</string>
+    <string name="mylist_deleted_snackbar">Movie removed</string>
+    <string name="mylist_undo">Undo</string>
 
     <!-- Common -->
     <string name="common_retry">Try again</string>
