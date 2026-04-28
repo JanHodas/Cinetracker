@@ -126,10 +126,39 @@ class MovieRepository(
         movieDao.deleteByTmdbId(tmdbId)
     }
 
+    // ── Stats ────────────────────────────────────────────────────────
+
     /** Observe status counts for the Stats screen. */
     fun observeStatusCounts(): Flow<Map<WatchStatus, Int>> =
         movieDao.observeStatusCounts().map { counts ->
             counts.associate { WatchStatus.valueOf(it.watchStatus) to it.count }
+        }
+
+    /** Observe average user rating across all rated movies. */
+    fun observeAverageRating(): Flow<Float?> = movieDao.observeAverageRating()
+
+    /** Observe total number of saved movies. */
+    fun observeTotalCount(): Flow<Int> = movieDao.observeCount()
+
+    /**
+     * Observe genre frequency across all saved movies, sorted descending.
+     * Each movie stores genres as a JSON list; this flattens all lists,
+     * counts occurrences, and returns the ranked result.
+     */
+    fun observeTopGenres(): Flow<List<Pair<String, Int>>> =
+        movieDao.observeAllGenres().map { jsonLists ->
+            jsonLists
+                .flatMap { json ->
+                    // Each row is a JSON-encoded List<String> via TypeConverter
+                    runCatching {
+                        kotlinx.serialization.json.Json.decodeFromString<List<String>>(json)
+                    }.getOrDefault(emptyList())
+                }
+                .groupingBy { it }
+                .eachCount()
+                .entries
+                .sortedByDescending { it.value }
+                .map { it.key to it.value }
         }
 
     // ── Internal ────────────────────────────────────────────────────

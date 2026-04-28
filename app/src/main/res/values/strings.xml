@@ -52,6 +52,20 @@
     <string name="mylist_deleted_snackbar">Film odstránený</string>
     <string name="mylist_undo">Späť</string>
 
+    <!-- Stats screen -->
+    <string name="stats_title">Štatistiky</string>
+    <string name="stats_total_movies">Celkom filmov</string>
+    <string name="stats_want_to_watch">Chcem pozrieť</string>
+    <string name="stats_watching">Pozerám</string>
+    <string name="stats_watched">Pozreté</string>
+    <string name="stats_average_rating">Priemerné hodnotenie</string>
+    <string name="stats_average_rating_value">%1$.1f / 10</string>
+    <string name="stats_no_ratings">Zatiaľ bez hodnotení</string>
+    <string name="stats_top_genres">Najčastejšie žánre</string>
+    <string name="stats_no_genres">Zatiaľ žiadne žánre</string>
+    <string name="stats_genre_count">%1$d×</string>
+    <string name="stats_empty">Zatiaľ nemáš žiadne filmy.\nPridaj ich cez vyhľadávanie.</string>
+
     <!-- Common -->
     <string name="common_retry">Skúsiť znova</string>
     <string name="poster_placeholder_description">Plagát filmu nie je dostupný</string>

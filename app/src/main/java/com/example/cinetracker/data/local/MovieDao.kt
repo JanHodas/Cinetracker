@@ -46,6 +46,14 @@ interface MovieDao {
     /** Count of movies per watch status (for Stats screen). */
     @Query("SELECT watchStatus, COUNT(*) as count FROM movies GROUP BY watchStatus")
     fun observeStatusCounts(): Flow<List<StatusCount>>
+
+    /** Average user rating across all rated movies (for Stats screen). */
+    @Query("SELECT AVG(userRating) FROM movies WHERE userRating IS NOT NULL")
+    fun observeAverageRating(): Flow<Float?>
+
+    /** All genres stored across saved movies (for Stats screen — top genres). */
+    @Query("SELECT genres FROM movies")
+    fun observeAllGenres(): Flow<List<String>>
 }
 
 /** Projection class for the status-count aggregate query. */
