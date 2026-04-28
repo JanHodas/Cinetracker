@@ -8,6 +8,7 @@ import com.example.cinetracker.domain.model.Movie
 import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.WatchStatus
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -41,10 +42,19 @@ class MovieRepository(
     }
 
     /**
-     * Loads the rich detail payload for a single movie.
+     * Loads the rich detail payload for a single movie from TMDB.
+     * If the network call fails and the movie is saved locally, falls
+     * back to the Room-cached copy so the detail screen works offline.
      */
-    suspend fun getMovieDetail(tmdbId: Int): Result<Movie> = runCatching {
-        tmdbApi.getMovieDetail(tmdbId).toDomain()
+    suspend fun getMovieDetail(tmdbId: Int): Result<Movie> {
+        val remoteResult = runCatching { tmdbApi.getMovieDetail(tmdbId).toDomain() }
+        if (remoteResult.isSuccess) return remoteResult
+
+        // Network failed — try local fallback for saved movies.
+        val local = movieDao.observeByTmdbId(tmdbId).first()
+        if (local != null) return Result.success(local.toDomain().movie)
+
+        return remoteResult
     }
 
     // ── Local (Room) ────────────────────────────────────────────────
