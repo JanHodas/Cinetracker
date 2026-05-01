@@ -4,9 +4,13 @@ import com.example.cinetracker.data.local.MovieDao
 import com.example.cinetracker.data.remote.TmdbApi
 import com.example.cinetracker.domain.mapper.toDomain
 import com.example.cinetracker.domain.mapper.toEntity
+import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.Movie
 import com.example.cinetracker.domain.model.SavedMovie
+import com.example.cinetracker.domain.model.Season
+import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
+import com.example.cinetracker.data.remote.dto.TmdbMultiSearchResultDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -14,8 +18,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Single source of truth for movie data. Orchestrates TMDB (remote) for search
- * and detail lookups, and Room (local) for the user's personal saved list.
+ * Single source of truth for media data (movies and TV shows). Orchestrates
+ * TMDB (remote) for search and detail lookups, and Room (local) for the
+ * user's personal saved list.
  *
  * All one-shot APIs return [Result] so ViewModels can map success/failure to
  * UI state without wrapping calls in try/catch. List queries return [Flow]s
@@ -26,20 +31,41 @@ class MovieRepository(
     private val movieDao: MovieDao,
 ) {
     private val genreCacheMutex = Mutex()
-    @Volatile private var cachedGenres: Map<Int, String>? = null
+    @Volatile private var cachedMovieGenres: Map<Int, String>? = null
+    @Volatile private var cachedTvGenres: Map<Int, String>? = null
 
-    // ── Remote (TMDB) ───────────────────────────────────────────────
+    // ── Remote — Search ────────────────────────────────────────────
 
     /**
-     * Searches TMDB by free-text [query]. Empty queries short-circuit to an empty list.
+     * Searches TMDB for movies only. Kept for backward compatibility.
      */
     suspend fun searchMovies(query: String): Result<List<Movie>> = runCatching {
         if (query.isBlank()) return@runCatching emptyList()
-        val genres = ensureGenres()
+        val genres = ensureMovieGenres()
         tmdbApi.searchMovies(query = query)
             .results
             .map { it.toDomain(genres) }
     }
+
+    /**
+     * Combined movie + TV search via `/search/multi`. Person results are
+     * filtered out; only movies and TV shows are returned as [MediaItem].
+     */
+    suspend fun searchMulti(query: String): Result<List<MediaItem>> = runCatching {
+        if (query.isBlank()) return@runCatching emptyList()
+        val allGenres = ensureAllGenres()
+        tmdbApi.searchMulti(query = query)
+            .results
+            .mapNotNull { result ->
+                when (result) {
+                    is TmdbMultiSearchResultDto.MovieResult -> result.toDomain(allGenres)
+                    is TmdbMultiSearchResultDto.TvResult -> result.toDomain(allGenres)
+                    is TmdbMultiSearchResultDto.Unknown -> null
+                }
+            }
+    }
+
+    // ── Remote — Detail ────────────────────────────────────────────
 
     /**
      * Loads the rich detail payload for a single movie from TMDB.
@@ -57,23 +83,73 @@ class MovieRepository(
         return remoteResult
     }
 
+    /**
+     * Loads the rich detail payload for a single TV show from TMDB.
+     * If the network call fails and the show is saved locally, falls
+     * back to the Room-cached copy so the detail screen works offline.
+     */
+    suspend fun getTvDetail(tmdbId: Int): Result<TvShow> {
+        val remoteResult = runCatching { tmdbApi.getTvDetail(tmdbId).toDomain() }
+        if (remoteResult.isSuccess) return remoteResult
+
+        val local = movieDao.observeByTmdbId(tmdbId).first()
+        if (local != null) return Result.success(local.toDomain().movie as TvShow)
+
+        return remoteResult
+    }
+
+    /**
+     * Loads a full season detail (with episodes) from TMDB.
+     * No offline fallback — episode data is not stored locally.
+     */
+    suspend fun getTvSeason(tvId: Int, seasonNumber: Int): Result<Season> = runCatching {
+        tmdbApi.getTvSeason(tvId, seasonNumber).toDomain()
+    }
+
     // ── Local (Room) ────────────────────────────────────────────────
 
-    /** Observe all saved movies (newest first). */
+    /** Observe all saved items (newest first). */
     fun observeSavedMovies(): Flow<List<SavedMovie>> =
         movieDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
-    /** Observe saved movies filtered by [status]. */
+    /** Observe saved items filtered by [status]. */
     fun observeSavedMoviesByStatus(status: WatchStatus): Flow<List<SavedMovie>> =
         movieDao.observeByStatus(status.name).map { entities -> entities.map { it.toDomain() } }
 
-    /** Observe whether a specific movie is saved and its current state. */
+    /** Observe saved items filtered by [mediaType] (`"movie"` or `"tv"`). */
+    fun observeSavedByMediaType(mediaType: String): Flow<List<SavedMovie>> =
+        movieDao.observeByMediaType(mediaType).map { entities -> entities.map { it.toDomain() } }
+
+    /** Observe saved items filtered by both [status] and [mediaType]. */
+    fun observeSavedByStatusAndMediaType(
+        status: WatchStatus,
+        mediaType: String,
+    ): Flow<List<SavedMovie>> =
+        movieDao.observeByStatusAndMediaType(status.name, mediaType)
+            .map { entities -> entities.map { it.toDomain() } }
+
+    /** Observe whether a specific item is saved and its current state. */
     fun observeSavedState(tmdbId: Int): Flow<SavedMovie?> =
         movieDao.observeByTmdbId(tmdbId).map { it?.toDomain() }
 
     /**
-     * Save a movie to the user's list (or update it if already present).
-     * TMDB metadata is snapshotted from [movie]; user fields are supplied separately.
+     * Save a media item to the user's list (or update it if already present).
+     * Works for both [Movie] and [TvShow] — the entity's `mediaType` column
+     * is set automatically by [MediaItem.toEntity].
+     */
+    suspend fun saveMedia(
+        mediaItem: MediaItem,
+        watchStatus: WatchStatus,
+        userRating: Float? = null,
+        note: String = "",
+        dateAdded: Long = System.currentTimeMillis(),
+    ) {
+        movieDao.upsert(mediaItem.toEntity(watchStatus, userRating, note, dateAdded))
+    }
+
+    /**
+     * Save a movie to the user's list. Delegates to [saveMedia].
+     * Kept for backward compatibility with existing callers.
      */
     suspend fun saveMovie(
         movie: Movie,
@@ -82,13 +158,18 @@ class MovieRepository(
         note: String = "",
         dateAdded: Long = System.currentTimeMillis(),
     ) {
-        movieDao.upsert(movie.toEntity(watchStatus, userRating, note, dateAdded))
+        saveMedia(movie, watchStatus, userRating, note, dateAdded)
     }
 
-    /** Update only the watch status of an already-saved movie. */
-    suspend fun updateStatus(tmdbId: Int, movie: Movie, status: WatchStatus, currentSaved: SavedMovie) {
+    /** Update only the watch status of an already-saved item. */
+    suspend fun updateStatus(
+        tmdbId: Int,
+        mediaItem: MediaItem,
+        status: WatchStatus,
+        currentSaved: SavedMovie,
+    ) {
         movieDao.upsert(
-            movie.toEntity(
+            mediaItem.toEntity(
                 watchStatus = status,
                 userRating = currentSaved.userRating,
                 note = currentSaved.note,
@@ -97,10 +178,10 @@ class MovieRepository(
         )
     }
 
-    /** Update the user rating of an already-saved movie. */
-    suspend fun updateRating(movie: Movie, rating: Float?, currentSaved: SavedMovie) {
+    /** Update the user rating of an already-saved item. */
+    suspend fun updateRating(mediaItem: MediaItem, rating: Float?, currentSaved: SavedMovie) {
         movieDao.upsert(
-            movie.toEntity(
+            mediaItem.toEntity(
                 watchStatus = currentSaved.watchStatus,
                 userRating = rating,
                 note = currentSaved.note,
@@ -109,10 +190,10 @@ class MovieRepository(
         )
     }
 
-    /** Update the personal note of an already-saved movie. */
-    suspend fun updateNote(movie: Movie, note: String, currentSaved: SavedMovie) {
+    /** Update the personal note of an already-saved item. */
+    suspend fun updateNote(mediaItem: MediaItem, note: String, currentSaved: SavedMovie) {
         movieDao.upsert(
-            movie.toEntity(
+            mediaItem.toEntity(
                 watchStatus = currentSaved.watchStatus,
                 userRating = currentSaved.userRating,
                 note = note,
@@ -121,58 +202,93 @@ class MovieRepository(
         )
     }
 
-    /** Remove a movie from the user's list by TMDB id. */
+    /** Remove an item from the user's list by TMDB id. */
     suspend fun removeMovie(tmdbId: Int) {
         movieDao.deleteByTmdbId(tmdbId)
     }
 
-    // ── Stats ────────────────────────────────────────────────────────
+    // ── Stats (unfiltered — all media types) ────────────────────────
 
-    /** Observe status counts for the Stats screen. */
+    /** Observe status counts across all saved items. */
     fun observeStatusCounts(): Flow<Map<WatchStatus, Int>> =
         movieDao.observeStatusCounts().map { counts ->
             counts.associate { WatchStatus.valueOf(it.watchStatus) to it.count }
         }
 
-    /** Observe average user rating across all rated movies. */
+    /** Observe average user rating across all rated items. */
     fun observeAverageRating(): Flow<Float?> = movieDao.observeAverageRating()
 
-    /** Observe total number of saved movies. */
+    /** Observe total number of saved items. */
     fun observeTotalCount(): Flow<Int> = movieDao.observeCount()
 
-    /**
-     * Observe genre frequency across all saved movies, sorted descending.
-     * Each movie stores genres as a JSON list; this flattens all lists,
-     * counts occurrences, and returns the ranked result.
-     */
+    /** Observe genre frequency across all saved items, sorted descending. */
     fun observeTopGenres(): Flow<List<Pair<String, Int>>> =
-        movieDao.observeAllGenres().map { jsonLists ->
-            jsonLists
-                .flatMap { json ->
-                    // Each row is a JSON-encoded List<String> via TypeConverter
-                    runCatching {
-                        kotlinx.serialization.json.Json.decodeFromString<List<String>>(json)
-                    }.getOrDefault(emptyList())
-                }
-                .groupingBy { it }
-                .eachCount()
-                .entries
-                .sortedByDescending { it.value }
-                .map { it.key to it.value }
+        movieDao.observeAllGenres().map { it.toGenreRanking() }
+
+    // ── Stats (per media type) ──────────────────────────────────────
+
+    /** Observe status counts for a specific [mediaType]. */
+    fun observeStatusCountsByMediaType(mediaType: String): Flow<Map<WatchStatus, Int>> =
+        movieDao.observeStatusCountsByMediaType(mediaType).map { counts ->
+            counts.associate { WatchStatus.valueOf(it.watchStatus) to it.count }
         }
+
+    /** Observe average user rating for a specific [mediaType]. */
+    fun observeAverageRatingByMediaType(mediaType: String): Flow<Float?> =
+        movieDao.observeAverageRatingByMediaType(mediaType)
+
+    /** Observe total count for a specific [mediaType]. */
+    fun observeTotalCountByMediaType(mediaType: String): Flow<Int> =
+        movieDao.observeCountByMediaType(mediaType)
+
+    /** Observe genre frequency for a specific [mediaType], sorted descending. */
+    fun observeTopGenresByMediaType(mediaType: String): Flow<List<Pair<String, Int>>> =
+        movieDao.observeAllGenresByMediaType(mediaType).map { it.toGenreRanking() }
 
     // ── Internal ────────────────────────────────────────────────────
 
     /**
-     * Returns (and lazily fetches) the genre id → name lookup table.
-     * Failures degrade gracefully to an empty map (missing genre chips, not a crash).
+     * Flattens a list of JSON-encoded genre arrays into a ranked frequency list.
      */
-    private suspend fun ensureGenres(): Map<Int, String> {
-        cachedGenres?.let { return it }
-        return genreCacheMutex.withLock {
-            cachedGenres ?: runCatching {
-                tmdbApi.getGenres().genres.associate { it.id to it.name }
-            }.getOrDefault(emptyMap()).also { cachedGenres = it }
+    private fun List<String>.toGenreRanking(): List<Pair<String, Int>> =
+        flatMap { json ->
+            runCatching {
+                kotlinx.serialization.json.Json.decodeFromString<List<String>>(json)
+            }.getOrDefault(emptyList())
         }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .map { it.key to it.value }
+
+    /** Lazily loads and caches movie genre lookup table. */
+    private suspend fun ensureMovieGenres(): Map<Int, String> {
+        cachedMovieGenres?.let { return it }
+        return genreCacheMutex.withLock {
+            cachedMovieGenres ?: runCatching {
+                tmdbApi.getGenres().genres.associate { it.id to it.name }
+            }.getOrDefault(emptyMap()).also { cachedMovieGenres = it }
+        }
+    }
+
+    /** Lazily loads and caches TV genre lookup table. */
+    private suspend fun ensureTvGenres(): Map<Int, String> {
+        cachedTvGenres?.let { return it }
+        return genreCacheMutex.withLock {
+            cachedTvGenres ?: runCatching {
+                tmdbApi.getTvGenres().genres.associate { it.id to it.name }
+            }.getOrDefault(emptyMap()).also { cachedTvGenres = it }
+        }
+    }
+
+    /**
+     * Returns a merged genre map (movie + TV). Used by [searchMulti] where
+     * results may contain both media types.
+     */
+    private suspend fun ensureAllGenres(): Map<Int, String> {
+        val movie = ensureMovieGenres()
+        val tv = ensureTvGenres()
+        return movie + tv
     }
 }
