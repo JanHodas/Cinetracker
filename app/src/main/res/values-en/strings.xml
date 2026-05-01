@@ -7,7 +7,7 @@
     <string name="nav_stats">Stats</string>
 
     <!-- Placeholder texts -->
-    <string name="screen_mylist_placeholder">My movie list</string>
+    <string name="screen_mylist_placeholder">My movie and TV list</string>
     <string name="screen_stats_placeholder">Watching statistics</string>
 
     <!-- Detail screen -->
@@ -40,10 +40,10 @@
     <string name="detail_episode_label">Episode %1$d: %2$s</string>
 
     <!-- Search screen -->
-    <string name="search_field_placeholder">Search a movie…</string>
-    <string name="search_field_label">Movie search</string>
+    <string name="search_field_placeholder">Search a movie or TV show…</string>
+    <string name="search_field_label">Movie and TV search</string>
     <string name="search_clear_action">Clear search</string>
-    <string name="search_state_idle">Start typing a movie title</string>
+    <string name="search_state_idle">Start typing a movie or TV show title</string>
     <string name="search_state_empty">No results for this query</string>
     <string name="search_state_error">Search failed</string>
 
@@ -84,5 +84,5 @@
 
     <!-- Common -->
     <string name="common_retry">Try again</string>
-    <string name="poster_placeholder_description">Poster not available</string>
+    <string name="poster_placeholder_description">Media poster not available</string>
 </resources>

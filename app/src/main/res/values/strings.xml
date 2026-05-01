@@ -7,7 +7,7 @@
     <string name="nav_stats">Štatistiky</string>
 
     <!-- Placeholder texts -->
-    <string name="screen_mylist_placeholder">Môj zoznam filmov</string>
+    <string name="screen_mylist_placeholder">Môj zoznam filmov a seriálov</string>
     <string name="screen_stats_placeholder">Štatistiky sledovania</string>
 
     <!-- Detail screen -->
@@ -40,10 +40,10 @@
     <string name="detail_episode_label">Epizóda %1$d: %2$s</string>
 
     <!-- Search screen -->
-    <string name="search_field_placeholder">Hľadaj film…</string>
-    <string name="search_field_label">Vyhľadávanie filmu</string>
+    <string name="search_field_placeholder">Hľadaj film alebo seriál…</string>
+    <string name="search_field_label">Vyhľadávanie filmov a seriálov</string>
     <string name="search_clear_action">Vymazať vyhľadávanie</string>
-    <string name="search_state_idle">Začni písať názov filmu</string>
+    <string name="search_state_idle">Začni písať názov filmu alebo seriálu</string>
     <string name="search_state_empty">Pre tento výraz sme nič nenašli</string>
     <string name="search_state_error">Vyhľadávanie zlyhalo</string>
 
@@ -84,5 +84,5 @@
 
     <!-- Common -->
     <string name="common_retry">Skúsiť znova</string>
-    <string name="poster_placeholder_description">Plagát filmu nie je dostupný</string>
+    <string name="poster_placeholder_description">Plagát nie je dostupný</string>
 </resources>
