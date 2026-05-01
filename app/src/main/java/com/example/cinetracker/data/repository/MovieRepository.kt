@@ -52,7 +52,7 @@ class MovieRepository(
 
         // Network failed — try local fallback for saved movies.
         val local = movieDao.observeByTmdbId(tmdbId).first()
-        if (local != null) return Result.success(local.toDomain().movie)
+        if (local != null) return Result.success(local.toDomain().movie as Movie)
 
         return remoteResult
     }

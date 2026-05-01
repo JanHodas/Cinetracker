@@ -17,17 +17,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.cinetracker.domain.model.Movie
+import com.example.cinetracker.domain.model.MediaItem
 
 /**
- * Compact list row representing a single movie. Used in search results and the user's saved list.
+ * Compact list row representing a single media item (movie or TV show).
  *
  * Layout: poster on the left (60×90 dp), then title / year / overview snippet on the right.
  * Tapping anywhere on the row triggers [onClick].
  */
 @Composable
 fun MovieListItem(
-    movie: Movie,
+    movie: MediaItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
