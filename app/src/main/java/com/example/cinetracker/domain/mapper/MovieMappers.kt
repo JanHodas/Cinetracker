@@ -48,18 +48,35 @@ fun TmdbMovieDetailDto.toDomain(): Movie = Movie(
 
 // ── Entity ↔ Domain ─────────────────────────────────────────────────
 
-/** Converts a Room [MovieEntity] to the domain [SavedMovie] wrapper. */
+/**
+ * Converts a Room [MovieEntity] to the domain [SavedMovie] wrapper.
+ * Dispatches to [Movie] or [TvShow] based on the [MovieEntity.mediaType] column.
+ */
 fun MovieEntity.toDomain(): SavedMovie = SavedMovie(
-    movie = Movie(
-        tmdbId = tmdbId,
-        title = title,
-        overview = overview,
-        posterPath = posterPath,
-        backdropPath = backdropPath,
-        releaseDate = releaseDate,
-        genres = genres,
-        tmdbRating = tmdbRating,
-    ),
+    movie = when (mediaType) {
+        "tv" -> TvShow(
+            tmdbId = tmdbId,
+            title = title,
+            overview = overview,
+            posterPath = posterPath,
+            backdropPath = backdropPath,
+            releaseDate = releaseDate,
+            genres = genres,
+            tmdbRating = tmdbRating,
+            numberOfSeasons = numberOfSeasons ?: 0,
+            numberOfEpisodes = 0,
+        )
+        else -> Movie(
+            tmdbId = tmdbId,
+            title = title,
+            overview = overview,
+            posterPath = posterPath,
+            backdropPath = backdropPath,
+            releaseDate = releaseDate,
+            genres = genres,
+            tmdbRating = tmdbRating,
+        )
+    },
     watchStatus = watchStatus,
     userRating = userRating,
     note = note,
@@ -67,11 +84,11 @@ fun MovieEntity.toDomain(): SavedMovie = SavedMovie(
 )
 
 /**
- * Converts a domain [Movie] into a Room [MovieEntity] ready for insertion.
- * User-specific fields are supplied as parameters because [Movie] itself
- * does not carry them.
+ * Converts any [MediaItem] (movie or TV show) into a Room [MovieEntity].
+ * The [mediaType] and [numberOfSeasons] columns are set automatically
+ * based on the concrete type.
  */
-fun Movie.toEntity(
+fun MediaItem.toEntity(
     watchStatus: WatchStatus,
     userRating: Float? = null,
     note: String = "",
@@ -89,6 +106,11 @@ fun Movie.toEntity(
     userRating = userRating,
     note = note,
     dateAdded = dateAdded,
+    mediaType = when (this) {
+        is Movie -> "movie"
+        is TvShow -> "tv"
+    },
+    numberOfSeasons = (this as? TvShow)?.numberOfSeasons,
 )
 
 // ── Multi-search result → Domain ───────────────────────────────────

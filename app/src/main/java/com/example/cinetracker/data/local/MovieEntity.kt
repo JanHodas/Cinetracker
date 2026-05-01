@@ -28,4 +28,8 @@ data class MovieEntity(
     val userRating: Float?,
     val note: String,
     val dateAdded: Long,
+    /** Discriminator: `"movie"` or `"tv"`. Defaults to `"movie"` for backward compatibility. */
+    val mediaType: String = "movie",
+    /** TV-only: total number of seasons. `null` for movies. */
+    val numberOfSeasons: Int? = null,
 )

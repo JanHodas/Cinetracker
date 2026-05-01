@@ -39,21 +39,49 @@ interface MovieDao {
     @Query("DELETE FROM movies WHERE tmdbId = :tmdbId")
     suspend fun deleteByTmdbId(tmdbId: Int)
 
-    /** Total number of saved movies (for Stats screen). */
+    // ── Unfiltered stats (backward compatibility) ────────────────────
+
+    /** Total number of saved items (for Stats screen). */
     @Query("SELECT COUNT(*) FROM movies")
     fun observeCount(): Flow<Int>
 
-    /** Count of movies per watch status (for Stats screen). */
+    /** Count per watch status (for Stats screen). */
     @Query("SELECT watchStatus, COUNT(*) as count FROM movies GROUP BY watchStatus")
     fun observeStatusCounts(): Flow<List<StatusCount>>
 
-    /** Average user rating across all rated movies (for Stats screen). */
+    /** Average user rating across all rated items (for Stats screen). */
     @Query("SELECT AVG(userRating) FROM movies WHERE userRating IS NOT NULL")
     fun observeAverageRating(): Flow<Float?>
 
-    /** All genres stored across saved movies (for Stats screen — top genres). */
+    /** All genres stored across saved items (for Stats screen — top genres). */
     @Query("SELECT genres FROM movies")
     fun observeAllGenres(): Flow<List<String>>
+
+    // ── Media-type filtered queries ────────────────────────────────
+
+    /** Observe items of a specific [mediaType] (`"movie"` or `"tv"`). */
+    @Query("SELECT * FROM movies WHERE mediaType = :mediaType ORDER BY dateAdded DESC")
+    fun observeByMediaType(mediaType: String): Flow<List<MovieEntity>>
+
+    /** Observe items filtered by both [watchStatus] and [mediaType]. */
+    @Query("SELECT * FROM movies WHERE watchStatus = :watchStatus AND mediaType = :mediaType ORDER BY dateAdded DESC")
+    fun observeByStatusAndMediaType(watchStatus: String, mediaType: String): Flow<List<MovieEntity>>
+
+    /** Total number of items with a given [mediaType]. */
+    @Query("SELECT COUNT(*) FROM movies WHERE mediaType = :mediaType")
+    fun observeCountByMediaType(mediaType: String): Flow<Int>
+
+    /** Count per watch status filtered by [mediaType]. */
+    @Query("SELECT watchStatus, COUNT(*) as count FROM movies WHERE mediaType = :mediaType GROUP BY watchStatus")
+    fun observeStatusCountsByMediaType(mediaType: String): Flow<List<StatusCount>>
+
+    /** Average user rating filtered by [mediaType]. */
+    @Query("SELECT AVG(userRating) FROM movies WHERE userRating IS NOT NULL AND mediaType = :mediaType")
+    fun observeAverageRatingByMediaType(mediaType: String): Flow<Float?>
+
+    /** All genres filtered by [mediaType]. */
+    @Query("SELECT genres FROM movies WHERE mediaType = :mediaType")
+    fun observeAllGenresByMediaType(mediaType: String): Flow<List<String>>
 }
 
 /** Projection class for the status-count aggregate query. */
