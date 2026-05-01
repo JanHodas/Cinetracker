@@ -8,6 +8,12 @@ import com.example.cinetracker.domain.model.WatchStatus
  */
 data class StatsUiState(
     val totalCount: Int = 0,
+    val movieStats: MediaStatsSection = MediaStatsSection(),
+    val tvStats: MediaStatsSection = MediaStatsSection(),
+)
+
+data class MediaStatsSection(
+    val totalCount: Int = 0,
     val statusCounts: Map<WatchStatus, Int> = emptyMap(),
     val averageRating: Float? = null,
     val topGenres: List<Pair<String, Int>> = emptyList(),

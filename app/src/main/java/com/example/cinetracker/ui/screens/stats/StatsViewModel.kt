@@ -14,25 +14,49 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * ViewModel for the Stats screen. Combines four reactive Room queries into
- * a single [StatsUiState] that updates automatically when the user's list
- * changes (e.g. adds/removes a movie on another screen).
+ * ViewModel for the Stats screen. Combines reactive Room queries for movies
+ * and TV shows into separate sections displayed on one screen.
  */
 class StatsViewModel(
     movieRepository: MovieRepository,
 ) : ViewModel() {
 
-    val uiState: StateFlow<StatsUiState> = combine(
-        movieRepository.observeTotalCount(),
-        movieRepository.observeStatusCounts(),
-        movieRepository.observeAverageRating(),
-        movieRepository.observeTopGenres(),
-    ) { total, statusCounts, avgRating, topGenres ->
-        StatsUiState(
-            totalCount = total,
+    private val movieStats = combine(
+        movieRepository.observeTotalCountByMediaType(MEDIA_TYPE_MOVIE),
+        movieRepository.observeStatusCountsByMediaType(MEDIA_TYPE_MOVIE),
+        movieRepository.observeAverageRatingByMediaType(MEDIA_TYPE_MOVIE),
+        movieRepository.observeTopGenresByMediaType(MEDIA_TYPE_MOVIE),
+    ) { totalCount, statusCounts, averageRating, topGenres ->
+        MediaStatsSection(
+            totalCount = totalCount,
             statusCounts = statusCounts,
-            averageRating = avgRating,
+            averageRating = averageRating,
             topGenres = topGenres,
+        )
+    }
+
+    private val tvStats = combine(
+        movieRepository.observeTotalCountByMediaType(MEDIA_TYPE_TV),
+        movieRepository.observeStatusCountsByMediaType(MEDIA_TYPE_TV),
+        movieRepository.observeAverageRatingByMediaType(MEDIA_TYPE_TV),
+        movieRepository.observeTopGenresByMediaType(MEDIA_TYPE_TV),
+    ) { totalCount, statusCounts, averageRating, topGenres ->
+        MediaStatsSection(
+            totalCount = totalCount,
+            statusCounts = statusCounts,
+            averageRating = averageRating,
+            topGenres = topGenres,
+        )
+    }
+
+    val uiState: StateFlow<StatsUiState> = combine(
+        movieStats,
+        tvStats,
+    ) { movieSection, tvSection ->
+        StatsUiState(
+            totalCount = movieSection.totalCount + tvSection.totalCount,
+            movieStats = movieSection,
+            tvStats = tvSection,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -41,6 +65,9 @@ class StatsViewModel(
     )
 
     companion object {
+        private const val MEDIA_TYPE_MOVIE = "movie"
+        private const val MEDIA_TYPE_TV = "tv"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CineTrackApplication

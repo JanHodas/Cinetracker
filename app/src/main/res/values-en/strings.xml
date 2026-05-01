@@ -63,7 +63,9 @@
 
     <!-- Stats screen -->
     <string name="stats_title">Statistics</string>
-    <string name="stats_total_movies">Total movies</string>
+    <string name="stats_section_movies">Movies</string>
+    <string name="stats_section_tv">TV shows</string>
+    <string name="stats_total_items">Total items</string>
     <string name="stats_want_to_watch">Want to watch</string>
     <string name="stats_watching">Watching</string>
     <string name="stats_watched">Watched</string>
@@ -73,7 +75,8 @@
     <string name="stats_top_genres">Top genres</string>
     <string name="stats_no_genres">No genres yet</string>
     <string name="stats_genre_count">%1$d×</string>
-    <string name="stats_empty">You don\'t have any movies yet.\nAdd them via search.</string>
+    <string name="stats_section_empty">No items in this section yet.</string>
+    <string name="stats_empty">You don\'t have any movies or TV shows yet.\nAdd them via search.</string>
 
     <!-- Media type badges -->
     <string name="badge_movie">Movie</string>

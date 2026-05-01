@@ -63,7 +63,9 @@
 
     <!-- Stats screen -->
     <string name="stats_title">Štatistiky</string>
-    <string name="stats_total_movies">Celkom filmov</string>
+    <string name="stats_section_movies">Filmy</string>
+    <string name="stats_section_tv">Seriály</string>
+    <string name="stats_total_items">Celkom položiek</string>
     <string name="stats_want_to_watch">Chcem pozrieť</string>
     <string name="stats_watching">Pozerám</string>
     <string name="stats_watched">Pozreté</string>
@@ -73,7 +75,8 @@
     <string name="stats_top_genres">Najčastejšie žánre</string>
     <string name="stats_no_genres">Zatiaľ žiadne žánre</string>
     <string name="stats_genre_count">%1$d×</string>
-    <string name="stats_empty">Zatiaľ nemáš žiadne filmy.\nPridaj ich cez vyhľadávanie.</string>
+    <string name="stats_section_empty">V tejto sekcii zatiaľ nie sú žiadne položky.</string>
+    <string name="stats_empty">Zatiaľ nemáš žiadne filmy ani seriály.\nPridaj ich cez vyhľadávanie.</string>
 
     <!-- Media type badges -->
     <string name="badge_movie">Film</string>

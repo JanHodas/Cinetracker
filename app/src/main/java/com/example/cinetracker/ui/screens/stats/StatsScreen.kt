@@ -75,71 +75,103 @@ private fun StatsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // ── Movie counts card ───────────────────────────────────────
-        StatsCard {
-            StatRow(
-                label = stringResource(R.string.stats_total_movies),
-                value = state.totalCount.toString(),
-                highlight = true,
+        MediaSection(
+            title = stringResource(R.string.stats_section_movies),
+            stats = state.movieStats,
+        )
+        MediaSection(
+            title = stringResource(R.string.stats_section_tv),
+            stats = state.tvStats,
+        )
+    }
+}
+
+@Composable
+private fun MediaSection(
+    title: String,
+    stats: MediaStatsSection,
+) {
+    StatsCard {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (stats.totalCount == 0) {
+            Text(
+                text = stringResource(R.string.stats_section_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            StatRow(
-                label = stringResource(R.string.stats_want_to_watch),
-                value = (state.statusCounts[WatchStatus.WANT_TO_WATCH] ?: 0).toString(),
+            return@StatsCard
+        }
+
+        StatRow(
+            label = stringResource(R.string.stats_total_items),
+            value = stats.totalCount.toString(),
+            highlight = true,
+        )
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        StatRow(
+            label = stringResource(R.string.stats_want_to_watch),
+            value = (stats.statusCounts[WatchStatus.WANT_TO_WATCH] ?: 0).toString(),
+        )
+        StatRow(
+            label = stringResource(R.string.stats_watching),
+            value = (stats.statusCounts[WatchStatus.WATCHING] ?: 0).toString(),
+        )
+        StatRow(
+            label = stringResource(R.string.stats_watched),
+            value = (stats.statusCounts[WatchStatus.WATCHED] ?: 0).toString(),
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = stringResource(R.string.stats_average_rating),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (stats.averageRating != null) {
+            Text(
+                text = stringResource(R.string.stats_average_rating_value, stats.averageRating),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
             )
-            StatRow(
-                label = stringResource(R.string.stats_watching),
-                value = (state.statusCounts[WatchStatus.WATCHING] ?: 0).toString(),
-            )
-            StatRow(
-                label = stringResource(R.string.stats_watched),
-                value = (state.statusCounts[WatchStatus.WATCHED] ?: 0).toString(),
+        } else {
+            Text(
+                text = stringResource(R.string.stats_no_ratings),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        // ── Average rating card ─────────────────────────────────────
-        StatsCard {
-            Text(
-                text = stringResource(R.string.stats_average_rating),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            if (state.averageRating != null) {
-                Text(
-                    text = stringResource(R.string.stats_average_rating_value, state.averageRating),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.stats_no_ratings),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // ── Top genres card ─────────────────────────────────────────
-        StatsCard {
+        Text(
+            text = stringResource(R.string.stats_top_genres),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (stats.topGenres.isEmpty()) {
             Text(
-                text = stringResource(R.string.stats_top_genres),
-                style = MaterialTheme.typography.titleMedium,
+                text = stringResource(R.string.stats_no_genres),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            if (state.topGenres.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.stats_no_genres),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        } else {
+            stats.topGenres.take(5).forEach { (genre, count) ->
+                StatRow(
+                    label = genre,
+                    value = stringResource(R.string.stats_genre_count, count),
                 )
-            } else {
-                state.topGenres.take(5).forEach { (genre, count) ->
-                    StatRow(
-                        label = genre,
-                        value = stringResource(R.string.stats_genre_count, count),
-                    )
-                }
             }
         }
     }
