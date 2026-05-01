@@ -15,9 +15,17 @@ sealed class Route(val path: String) {
     data object Search : Route("search")
     data object MyList : Route("mylist")
     data object Stats : Route("stats")
-    data class Detail(val tmdbId: Int) : Route("detail/$tmdbId") {
+
+    /**
+     * Detail screen for a movie or TV show.
+     *
+     * @param mediaType `"movie"` or `"tv"` — determines which TMDB endpoint to call.
+     * @param tmdbId the TMDB identifier.
+     */
+    data class Detail(val mediaType: String, val tmdbId: Int) : Route("detail/$mediaType/$tmdbId") {
         companion object {
-            const val PATH_TEMPLATE = "detail/{tmdbId}"
+            const val PATH_TEMPLATE = "detail/{mediaType}/{tmdbId}"
+            const val ARG_MEDIA_TYPE = "mediaType"
             const val ARG_TMDB_ID = "tmdbId"
         }
     }

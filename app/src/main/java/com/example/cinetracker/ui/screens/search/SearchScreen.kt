@@ -30,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
+import com.example.cinetracker.domain.model.Movie
+import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.ui.components.MovieListItem
 
 @Composable
 fun SearchScreen(
-    onMovieClick: (Int) -> Unit,
+    onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = viewModel(factory = SearchViewModel.Factory),
 ) {
@@ -60,10 +62,14 @@ fun SearchScreen(
                 onRetry = viewModel::retry,
             )
             is SearchUiState.Success -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items = state.movies, key = { it.tmdbId }) { movie ->
+                items(items = state.results, key = { it.tmdbId }) { item ->
+                    val mediaType = when (item) {
+                        is Movie -> "movie"
+                        is TvShow -> "tv"
+                    }
                     MovieListItem(
-                        movie = movie,
-                        onClick = { onMovieClick(movie.tmdbId) },
+                        movie = item,
+                        onClick = { onItemClick(mediaType, item.tmdbId) },
                     )
                 }
             }

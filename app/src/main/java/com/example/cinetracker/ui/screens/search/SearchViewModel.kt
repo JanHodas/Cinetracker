@@ -62,11 +62,11 @@ class SearchViewModel(
                     return@flow
                 }
                 emit(SearchUiState.Loading)
-                movieRepository.searchMovies(trimmed).fold(
-                    onSuccess = { movies ->
+                movieRepository.searchMulti(trimmed).fold(
+                    onSuccess = { results ->
                         emit(
-                            if (movies.isEmpty()) SearchUiState.Empty
-                            else SearchUiState.Success(movies)
+                            if (results.isEmpty()) SearchUiState.Empty
+                            else SearchUiState.Success(results)
                         )
                     },
                     onFailure = { throwable ->

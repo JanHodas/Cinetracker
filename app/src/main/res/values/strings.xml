@@ -66,6 +66,10 @@
     <string name="stats_genre_count">%1$d×</string>
     <string name="stats_empty">Zatiaľ nemáš žiadne filmy.\nPridaj ich cez vyhľadávanie.</string>
 
+    <!-- Media type badges -->
+    <string name="badge_movie">Film</string>
+    <string name="badge_tv">Seriál</string>
+
     <!-- Common -->
     <string name="common_retry">Skúsiť znova</string>
     <string name="poster_placeholder_description">Plagát filmu nie je dostupný</string>

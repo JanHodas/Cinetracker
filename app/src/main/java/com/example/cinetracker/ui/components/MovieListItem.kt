@@ -1,28 +1,35 @@
 package com.example.cinetracker.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.cinetracker.R
 import com.example.cinetracker.domain.model.MediaItem
+import com.example.cinetracker.domain.model.TvShow
 
 /**
  * Compact list row representing a single media item (movie or TV show).
  *
- * Layout: poster on the left (60×90 dp), then title / year / overview snippet on the right.
+ * Layout: poster on the left (60×90 dp), then title / badge / year / overview
+ * snippet on the right. TV shows display a small "Seriál" badge next to the year.
  * Tapping anywhere on the row triggers [onClick].
  */
 @Composable
@@ -56,13 +63,21 @@ fun MovieListItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val year = movie.releaseDate?.take(4)?.takeIf { it.length == 4 }
-                if (year != null) {
-                    Text(
-                        text = year,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val year = movie.releaseDate?.take(4)?.takeIf { it.length == 4 }
+                    if (year != null) {
+                        Text(
+                            text = year,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (movie is TvShow) {
+                        MediaTypeBadge(label = stringResource(R.string.badge_tv))
+                    }
                 }
                 if (movie.overview.isNotBlank()) {
                     Text(
@@ -75,5 +90,22 @@ fun MovieListItem(
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+    }
+}
+
+/** Small rounded label used to distinguish TV shows from movies in mixed lists. */
+@Composable
+private fun MediaTypeBadge(label: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
     }
 }

@@ -66,6 +66,10 @@
     <string name="stats_genre_count">%1$d×</string>
     <string name="stats_empty">You don\'t have any movies yet.\nAdd them via search.</string>
 
+    <!-- Media type badges -->
+    <string name="badge_movie">Movie</string>
+    <string name="badge_tv">TV Show</string>
+
     <!-- Common -->
     <string name="common_retry">Try again</string>
     <string name="poster_placeholder_description">Poster not available</string>

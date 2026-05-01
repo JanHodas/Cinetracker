@@ -1,6 +1,6 @@
 package com.example.cinetracker.ui.screens.search
 
-import com.example.cinetracker.domain.model.Movie
+import com.example.cinetracker.domain.model.MediaItem
 
 /**
  * Discrete UI states for the search screen. Modeled as a sealed interface so the
@@ -13,8 +13,8 @@ sealed interface SearchUiState {
     /** Network call in flight. */
     data object Loading : SearchUiState
 
-    /** Query returned at least one match. */
-    data class Success(val movies: List<Movie>) : SearchUiState
+    /** Query returned at least one match (movies and/or TV shows). */
+    data class Success(val results: List<MediaItem>) : SearchUiState
 
     /** Query was valid but TMDB returned zero results. */
     data object Empty : SearchUiState

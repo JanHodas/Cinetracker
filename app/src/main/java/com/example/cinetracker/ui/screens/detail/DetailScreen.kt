@@ -68,7 +68,6 @@ import com.example.cinetracker.ui.components.AsyncMoviePoster
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(
-    tmdbId: Int,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DetailViewModel = viewModel(factory = DetailViewModel.Factory),

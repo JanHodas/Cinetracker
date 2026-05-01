@@ -41,7 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
+import com.example.cinetracker.domain.model.Movie
 import com.example.cinetracker.domain.model.SavedMovie
+import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.ui.components.MovieListItem
 import kotlinx.coroutines.launch
@@ -49,7 +51,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyListScreen(
-    onMovieClick: (Int) -> Unit,
+    onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MyListViewModel = viewModel(factory = MyListViewModel.Factory),
 ) {
@@ -85,7 +87,7 @@ fun MyListScreen(
             } else {
                 MovieList(
                     movies = uiState.movies,
-                    onMovieClick = onMovieClick,
+                    onItemClick = onItemClick,
                     onDelete = { saved ->
                         viewModel.deleteMovie(saved)
                         scope.launch {
@@ -133,7 +135,7 @@ private fun FilterRow(
 @Composable
 private fun MovieList(
     movies: List<SavedMovie>,
-    onMovieClick: (Int) -> Unit,
+    onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     onDelete: (SavedMovie) -> Unit,
 ) {
     LazyColumn(
@@ -144,10 +146,14 @@ private fun MovieList(
             items = movies,
             key = { it.movie.tmdbId },
         ) { savedMovie ->
+            val mediaType = when (savedMovie.movie) {
+                is Movie -> "movie"
+                is TvShow -> "tv"
+            }
             SwipeToDismissItem(
                 savedMovie = savedMovie,
                 onDelete = { onDelete(savedMovie) },
-                onClick = { onMovieClick(savedMovie.movie.tmdbId) },
+                onClick = { onItemClick(mediaType, savedMovie.movie.tmdbId) },
             )
         }
     }

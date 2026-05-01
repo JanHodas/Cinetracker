@@ -24,15 +24,15 @@ fun CineTrackNavHost(
     ) {
         composable(Route.Search.path) {
             SearchScreen(
-                onMovieClick = { tmdbId ->
-                    navController.navigate(Route.Detail(tmdbId).path)
+                onItemClick = { mediaType, tmdbId ->
+                    navController.navigate(Route.Detail(mediaType, tmdbId).path)
                 },
             )
         }
         composable(Route.MyList.path) {
             MyListScreen(
-                onMovieClick = { tmdbId ->
-                    navController.navigate(Route.Detail(tmdbId).path)
+                onItemClick = { mediaType, tmdbId ->
+                    navController.navigate(Route.Detail(mediaType, tmdbId).path)
                 },
             )
         }
@@ -42,12 +42,11 @@ fun CineTrackNavHost(
         composable(
             route = Route.Detail.PATH_TEMPLATE,
             arguments = listOf(
-                navArgument(Route.Detail.ARG_TMDB_ID) { type = NavType.IntType }
+                navArgument(Route.Detail.ARG_MEDIA_TYPE) { type = NavType.StringType },
+                navArgument(Route.Detail.ARG_TMDB_ID) { type = NavType.IntType },
             ),
-        ) { backStackEntry ->
-            val tmdbId = backStackEntry.arguments?.getInt(Route.Detail.ARG_TMDB_ID) ?: 0
+        ) {
             DetailScreen(
-                tmdbId = tmdbId,
                 onBack = { navController.popBackStack() },
             )
         }

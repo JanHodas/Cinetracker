@@ -50,30 +50,74 @@ class MovieRepository(
     /**
      * Combined movie + TV search via `/search/multi`. Person results are
      * filtered out; only movies and TV shows are returned as [MediaItem].
+     *
+     * If any result has an empty overview in the default language (sk-SK),
+     * a second call with `en-US` is made and English overviews are used
+     * as a fallback.
      */
     suspend fun searchMulti(query: String): Result<List<MediaItem>> = runCatching {
         if (query.isBlank()) return@runCatching emptyList()
         val allGenres = ensureAllGenres()
-        tmdbApi.searchMulti(query = query)
-            .results
-            .mapNotNull { result ->
-                when (result) {
-                    is TmdbMultiSearchResultDto.MovieResult -> result.toDomain(allGenres)
-                    is TmdbMultiSearchResultDto.TvResult -> result.toDomain(allGenres)
-                    is TmdbMultiSearchResultDto.Unknown -> null
-                }
+        val skResults = tmdbApi.searchMulti(query = query).results
+
+        // Check if any result is missing an overview in Slovak.
+        val needsFallback = skResults.any { result ->
+            when (result) {
+                is TmdbMultiSearchResultDto.MovieResult -> result.overview.isBlank()
+                is TmdbMultiSearchResultDto.TvResult -> result.overview.isBlank()
+                is TmdbMultiSearchResultDto.Unknown -> false
             }
+        }
+
+        val enOverviews: Map<Int, String> = if (needsFallback) {
+            runCatching {
+                tmdbApi.searchMulti(query = query, language = FALLBACK_LANGUAGE)
+                    .results
+                    .mapNotNull { r ->
+                        when (r) {
+                            is TmdbMultiSearchResultDto.MovieResult -> r.id to r.overview
+                            is TmdbMultiSearchResultDto.TvResult -> r.id to r.overview
+                            is TmdbMultiSearchResultDto.Unknown -> null
+                        }
+                    }
+                    .toMap()
+            }.getOrDefault(emptyMap())
+        } else {
+            emptyMap()
+        }
+
+        skResults.mapNotNull { result ->
+            when (result) {
+                is TmdbMultiSearchResultDto.MovieResult -> {
+                    val overview = result.overview.ifBlank { enOverviews[result.id] ?: "" }
+                    result.copy(overview = overview).toDomain(allGenres)
+                }
+                is TmdbMultiSearchResultDto.TvResult -> {
+                    val overview = result.overview.ifBlank { enOverviews[result.id] ?: "" }
+                    result.copy(overview = overview).toDomain(allGenres)
+                }
+                is TmdbMultiSearchResultDto.Unknown -> null
+            }
+        }
     }
 
     // ── Remote — Detail ────────────────────────────────────────────
 
     /**
      * Loads the rich detail payload for a single movie from TMDB.
-     * If the network call fails and the movie is saved locally, falls
-     * back to the Room-cached copy so the detail screen works offline.
+     * If the overview is empty in sk-SK, falls back to en-US.
+     * If the network call fails entirely, falls back to the Room-cached copy.
      */
     suspend fun getMovieDetail(tmdbId: Int): Result<Movie> {
-        val remoteResult = runCatching { tmdbApi.getMovieDetail(tmdbId).toDomain() }
+        val remoteResult = runCatching {
+            val detail = tmdbApi.getMovieDetail(tmdbId)
+            if (detail.overview.isBlank()) {
+                val enDetail = runCatching { tmdbApi.getMovieDetail(tmdbId, language = FALLBACK_LANGUAGE) }
+                detail.copy(overview = enDetail.getOrNull()?.overview ?: "").toDomain()
+            } else {
+                detail.toDomain()
+            }
+        }
         if (remoteResult.isSuccess) return remoteResult
 
         // Network failed — try local fallback for saved movies.
@@ -85,11 +129,19 @@ class MovieRepository(
 
     /**
      * Loads the rich detail payload for a single TV show from TMDB.
-     * If the network call fails and the show is saved locally, falls
-     * back to the Room-cached copy so the detail screen works offline.
+     * If the overview is empty in sk-SK, falls back to en-US.
+     * If the network call fails entirely, falls back to the Room-cached copy.
      */
     suspend fun getTvDetail(tmdbId: Int): Result<TvShow> {
-        val remoteResult = runCatching { tmdbApi.getTvDetail(tmdbId).toDomain() }
+        val remoteResult = runCatching {
+            val detail = tmdbApi.getTvDetail(tmdbId)
+            if (detail.overview.isBlank()) {
+                val enDetail = runCatching { tmdbApi.getTvDetail(tmdbId, language = FALLBACK_LANGUAGE) }
+                detail.copy(overview = enDetail.getOrNull()?.overview ?: "").toDomain()
+            } else {
+                detail.toDomain()
+            }
+        }
         if (remoteResult.isSuccess) return remoteResult
 
         val local = movieDao.observeByTmdbId(tmdbId).first()
@@ -290,5 +342,10 @@ class MovieRepository(
         val movie = ensureMovieGenres()
         val tv = ensureTvGenres()
         return movie + tv
+    }
+
+    companion object {
+        /** Language used when the primary (sk-SK) overview is empty. */
+        private const val FALLBACK_LANGUAGE = "en-US"
     }
 }
