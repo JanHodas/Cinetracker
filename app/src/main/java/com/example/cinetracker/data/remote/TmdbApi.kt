@@ -1,5 +1,6 @@
 package com.example.cinetracker.data.remote
 
+import com.example.cinetracker.data.remote.dto.TmdbCreditsDto
 import com.example.cinetracker.data.remote.dto.TmdbGenreListDto
 import com.example.cinetracker.data.remote.dto.TmdbMovieDetailDto
 import com.example.cinetracker.data.remote.dto.TmdbMultiSearchResponseDto
@@ -30,6 +31,12 @@ interface TmdbApi {
         @Query("language") language: String = DEFAULT_LANGUAGE,
     ): TmdbMovieDetailDto
 
+    @GET("movie/{id}/credits")
+    suspend fun getMovieCredits(
+        @Path("id") tmdbId: Int,
+        @Query("language") language: String = DEFAULT_LANGUAGE,
+    ): TmdbCreditsDto
+
     @GET("genre/movie/list")
     suspend fun getGenres(
         @Query("language") language: String = DEFAULT_LANGUAGE,
@@ -51,6 +58,12 @@ interface TmdbApi {
         @Path("id") tmdbId: Int,
         @Query("language") language: String = DEFAULT_LANGUAGE,
     ): TmdbTvDetailDto
+
+    @GET("tv/{id}/credits")
+    suspend fun getTvCredits(
+        @Path("id") tmdbId: Int,
+        @Query("language") language: String = DEFAULT_LANGUAGE,
+    ): TmdbCreditsDto
 
     @GET("tv/{id}/season/{seasonNumber}")
     suspend fun getTvSeason(

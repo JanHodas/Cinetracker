@@ -14,6 +14,8 @@
     <string name="detail_back">Späť</string>
     <string name="detail_title">Detail</string>
     <string name="detail_overview_title">Popis</string>
+    <string name="detail_cast_title">Obsadenie</string>
+    <string name="detail_cast_as">Ako: %1$s</string>
     <string name="detail_genres_title">Žánre</string>
     <string name="detail_no_overview">Popis nie je dostupný</string>
     <string name="detail_runtime_minutes">%1$d min</string>

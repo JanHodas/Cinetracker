@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
+import com.example.cinetracker.domain.model.CastMember
 import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.Season
@@ -122,6 +123,7 @@ fun DetailScreen(
                 )
                 is DetailUiState.Success -> SuccessContent(
                     mediaItem = state.mediaItem,
+                    cast = state.cast,
                     seasons = state.seasons,
                     savedMovie = savedState,
                     onSaveToList = viewModel::saveToList,
@@ -139,6 +141,7 @@ fun DetailScreen(
 @Composable
 private fun SuccessContent(
     mediaItem: MediaItem,
+    cast: List<CastMember>,
     seasons: List<Season>,
     savedMovie: SavedMovie?,
     onSaveToList: (WatchStatus) -> Unit,
@@ -193,6 +196,19 @@ private fun SuccessContent(
                 text = mediaItem.overview.ifBlank { stringResource(R.string.detail_no_overview) },
                 style = MaterialTheme.typography.bodyMedium,
             )
+
+            if (cast.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Text(
+                    text = stringResource(R.string.detail_cast_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cast.forEach { castMember ->
+                        CastRow(castMember = castMember)
+                    }
+                }
+            }
 
             if (mediaItem is TvShow) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -396,6 +412,23 @@ private fun MetadataRow(mediaItem: MediaItem) {
             Text(
                 text = stringResource(R.string.detail_episode_count, mediaItem.numberOfEpisodes),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CastRow(castMember: CastMember) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = castMember.name,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        if (castMember.character.isNotBlank()) {
+            Text(
+                text = stringResource(R.string.detail_cast_as, castMember.character),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

@@ -1,5 +1,6 @@
 package com.example.cinetracker.domain.mapper
 
+import com.example.cinetracker.data.remote.dto.TmdbCastMemberDto
 import com.example.cinetracker.data.local.MovieEntity
 import com.example.cinetracker.data.remote.dto.TmdbEpisodeDto
 import com.example.cinetracker.data.remote.dto.TmdbMovieDetailDto
@@ -8,6 +9,7 @@ import com.example.cinetracker.data.remote.dto.TmdbMultiSearchResultDto
 import com.example.cinetracker.data.remote.dto.TmdbSeasonDetailDto
 import com.example.cinetracker.data.remote.dto.TmdbSeasonSummaryDto
 import com.example.cinetracker.data.remote.dto.TmdbTvDetailDto
+import com.example.cinetracker.domain.model.CastMember
 import com.example.cinetracker.domain.model.Episode
 import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.Movie
@@ -187,4 +189,12 @@ fun TmdbEpisodeDto.toDomain(): Episode = Episode(
     overview = overview,
     airDate = airDate?.takeIf { it.isNotBlank() },
     runtime = runtime,
+)
+
+/** Converts a cast DTO into the domain [CastMember] model. */
+fun TmdbCastMemberDto.toDomain(): CastMember = CastMember(
+    id = id,
+    name = name,
+    character = character?.takeIf { it.isNotBlank() } ?: "",
+    profilePath = profilePath,
 )

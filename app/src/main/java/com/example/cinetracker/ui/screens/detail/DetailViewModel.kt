@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cinetracker.CineTrackApplication
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.repository.MovieRepository
+import com.example.cinetracker.domain.model.CastMember
 import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.Season
@@ -129,6 +130,7 @@ class DetailViewModel(
         movieRepository.getMovieDetail(tmdbId).fold(
             onSuccess = { movie ->
                 _uiState.value = DetailUiState.Success(mediaItem = movie)
+                loadCastForCurrentItem()
             },
             onFailure = { throwable ->
                 _uiState.value = DetailUiState.Error(throwable.message ?: UNKNOWN_ERROR)
@@ -143,6 +145,7 @@ class DetailViewModel(
                     mediaItem = tvShow,
                     seasons = loadTvSeasons(tvShow.numberOfSeasons),
                 )
+                loadCastForCurrentItem()
             },
             onFailure = { throwable ->
                 _uiState.value = DetailUiState.Error(throwable.message ?: UNKNOWN_ERROR)
@@ -160,8 +163,18 @@ class DetailViewModel(
     private fun currentMediaItem(): MediaItem? =
         (_uiState.value as? DetailUiState.Success)?.mediaItem
 
+    private suspend fun loadCastForCurrentItem() {
+        val successState = _uiState.value as? DetailUiState.Success ?: return
+        val cast = when (mediaType) {
+            MEDIA_TYPE_TV -> movieRepository.getTvCast(tmdbId).getOrDefault(emptyList())
+            else -> movieRepository.getMovieCast(tmdbId).getOrDefault(emptyList())
+        }
+        _uiState.value = successState.copy(cast = cast.take(MAX_CAST_MEMBERS))
+    }
+
     companion object {
         private const val MEDIA_TYPE_TV = "tv"
+        private const val MAX_CAST_MEMBERS = 10
         private const val UNKNOWN_ERROR = "Unknown error"
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {

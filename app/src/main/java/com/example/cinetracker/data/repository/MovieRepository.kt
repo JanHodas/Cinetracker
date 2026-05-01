@@ -5,6 +5,7 @@ import com.example.cinetracker.data.remote.TmdbApi
 import com.example.cinetracker.data.remote.dto.TmdbEpisodeDto
 import com.example.cinetracker.domain.mapper.toDomain
 import com.example.cinetracker.domain.mapper.toEntity
+import com.example.cinetracker.domain.model.CastMember
 import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.Movie
 import com.example.cinetracker.domain.model.SavedMovie
@@ -170,6 +171,22 @@ class MovieRepository(
         } else {
             detail.toDomain()
         }
+    }
+
+    /** Loads the cast list for a movie from TMDB. */
+    suspend fun getMovieCast(tmdbId: Int): Result<List<CastMember>> = runCatching {
+        tmdbApi.getMovieCredits(tmdbId)
+            .cast
+            .sortedBy { it.order }
+            .map { it.toDomain() }
+    }
+
+    /** Loads the cast list for a TV show from TMDB. */
+    suspend fun getTvCast(tmdbId: Int): Result<List<CastMember>> = runCatching {
+        tmdbApi.getTvCredits(tmdbId)
+            .cast
+            .sortedBy { it.order }
+            .map { it.toDomain() }
     }
 
     // ── Local (Room) ────────────────────────────────────────────────
