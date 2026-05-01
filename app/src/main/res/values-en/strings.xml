@@ -12,7 +12,7 @@
 
     <!-- Detail screen -->
     <string name="detail_back">Back</string>
-    <string name="detail_title">Movie detail</string>
+    <string name="detail_title">Detail</string>
     <string name="detail_overview_title">Overview</string>
     <string name="detail_genres_title">Genres</string>
     <string name="detail_no_overview">No overview available</string>
@@ -28,10 +28,16 @@
     <string name="detail_your_rating">Your rating</string>
     <string name="detail_rating_value">%1$.0f / 10</string>
     <string name="detail_note_label">Personal note</string>
-    <string name="detail_note_placeholder">Write a note about this movie…</string>
-    <string name="detail_saved_snackbar">Movie saved to list</string>
-    <string name="detail_removed_snackbar">Movie removed from list</string>
+    <string name="detail_note_placeholder">Write a note about this movie or TV show…</string>
+    <string name="detail_saved_snackbar">Item saved to list</string>
+    <string name="detail_removed_snackbar">Item removed from list</string>
     <string name="detail_remove_from_list">Remove from list</string>
+    <string name="detail_seasons_title">Seasons</string>
+    <string name="detail_no_seasons">Seasons are not available</string>
+    <string name="detail_no_episodes">Episodes are not available</string>
+    <string name="detail_season_count">%1$d seasons</string>
+    <string name="detail_episode_count">%1$d episodes</string>
+    <string name="detail_episode_label">Episode %1$d: %2$s</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Search a movie…</string>

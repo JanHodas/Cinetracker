@@ -11,8 +11,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cinetracker.CineTrackApplication
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.repository.MovieRepository
-import com.example.cinetracker.domain.model.Movie
+import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.SavedMovie
+import com.example.cinetracker.domain.model.Season
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.ui.navigation.Route
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,18 +30,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel for the movie detail screen. Manages two independent concerns:
+ * ViewModel for the media detail screen.
  *
- * 1. **TMDB detail** — fetched once and cached for the back-stack entry lifetime.
- *    Exposed as [uiState] (Loading / Success / Error). Auto-recovers on
- *    offline → online transitions.
- *
- * 2. **Saved state** — reactive Room observation of whether this movie is in
- *    the user's personal list. Exposed as [savedState] (flow of [SavedMovie?]).
- *    `null` means "not saved"; non-null carries watch status, rating and note.
- *
- * User actions (save, update status/rating/note, remove) go through dedicated
- * public functions that delegate to [MovieRepository].
+ * It loads either movie or TV detail based on the navigation argument, observes
+ * the locally-saved state from Room, and exposes user actions for watch status,
+ * rating, note updates and removal.
  */
 class DetailViewModel(
     private val movieRepository: MovieRepository,
@@ -48,22 +42,19 @@ class DetailViewModel(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
+    private val mediaType: String = checkNotNull(savedStateHandle[Route.Detail.ARG_MEDIA_TYPE]) {
+        "Missing ${Route.Detail.ARG_MEDIA_TYPE} argument for DetailViewModel"
+    }
+
     private val tmdbId: Int = checkNotNull(savedStateHandle[Route.Detail.ARG_TMDB_ID]) {
         "Missing ${Route.Detail.ARG_TMDB_ID} argument for DetailViewModel"
     }
 
-    // ── TMDB detail ─────────────────────────────────────────────────
-
     private val _uiState = MutableStateFlow<DetailUiState>(DetailUiState.Loading)
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
-    // ── Saved (local) state ─────────────────────────────────────────
-
-    /** `null` = movie is not in the user's list. */
     val savedState: StateFlow<SavedMovie?> = movieRepository.observeSavedState(tmdbId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    // ── One-shot events (snackbar messages) ─────────────────────────
 
     private val _events = MutableSharedFlow<DetailEvent>()
     val events: SharedFlow<DetailEvent> = _events.asSharedFlow()
@@ -85,45 +76,38 @@ class DetailViewModel(
         loadDetail()
     }
 
-    // ── User actions ────────────────────────────────────────────────
-
-    /** First-time save — picks the initial status. */
     fun saveToList(status: WatchStatus) {
-        val movie = currentMovie() ?: return
+        val mediaItem = currentMediaItem() ?: return
         viewModelScope.launch {
-            movieRepository.saveMovie(movie = movie, watchStatus = status)
+            movieRepository.saveMedia(mediaItem = mediaItem, watchStatus = status)
             _events.emit(DetailEvent.MovieSaved)
         }
     }
 
-    /** Change the watch status of an already-saved movie. */
     fun updateStatus(status: WatchStatus) {
-        val movie = currentMovie() ?: return
+        val mediaItem = currentMediaItem() ?: return
         val saved = savedState.value ?: return
         viewModelScope.launch {
-            movieRepository.updateStatus(tmdbId, movie, status, saved)
+            movieRepository.updateStatus(tmdbId, mediaItem, status, saved)
         }
     }
 
-    /** Update the user's own 1–10 rating. */
     fun updateRating(rating: Float?) {
-        val movie = currentMovie() ?: return
+        val mediaItem = currentMediaItem() ?: return
         val saved = savedState.value ?: return
         viewModelScope.launch {
-            movieRepository.updateRating(movie, rating, saved)
+            movieRepository.updateRating(mediaItem, rating, saved)
         }
     }
 
-    /** Update the personal note. */
     fun updateNote(note: String) {
-        val movie = currentMovie() ?: return
+        val mediaItem = currentMediaItem() ?: return
         val saved = savedState.value ?: return
         viewModelScope.launch {
-            movieRepository.updateNote(movie, note, saved)
+            movieRepository.updateNote(mediaItem, note, saved)
         }
     }
 
-    /** Remove the movie from the user's list entirely. */
     fun removeFromList() {
         viewModelScope.launch {
             movieRepository.removeMovie(tmdbId)
@@ -131,23 +115,53 @@ class DetailViewModel(
         }
     }
 
-    // ── Internal ────────────────────────────────────────────────────
-
     private fun loadDetail() {
         _uiState.value = DetailUiState.Loading
         viewModelScope.launch {
-            movieRepository.getMovieDetail(tmdbId).fold(
-                onSuccess = { movie -> _uiState.value = DetailUiState.Success(movie) },
-                onFailure = { throwable ->
-                    _uiState.value = DetailUiState.Error(throwable.message ?: UNKNOWN_ERROR)
-                },
-            )
+            when (mediaType) {
+                MEDIA_TYPE_TV -> loadTvDetail()
+                else -> loadMovieDetail()
+            }
         }
     }
 
-    private fun currentMovie(): Movie? = (_uiState.value as? DetailUiState.Success)?.movie
+    private suspend fun loadMovieDetail() {
+        movieRepository.getMovieDetail(tmdbId).fold(
+            onSuccess = { movie ->
+                _uiState.value = DetailUiState.Success(mediaItem = movie)
+            },
+            onFailure = { throwable ->
+                _uiState.value = DetailUiState.Error(throwable.message ?: UNKNOWN_ERROR)
+            },
+        )
+    }
+
+    private suspend fun loadTvDetail() {
+        movieRepository.getTvDetail(tmdbId).fold(
+            onSuccess = { tvShow ->
+                _uiState.value = DetailUiState.Success(
+                    mediaItem = tvShow,
+                    seasons = loadTvSeasons(tvShow.numberOfSeasons),
+                )
+            },
+            onFailure = { throwable ->
+                _uiState.value = DetailUiState.Error(throwable.message ?: UNKNOWN_ERROR)
+            },
+        )
+    }
+
+    private suspend fun loadTvSeasons(numberOfSeasons: Int): List<Season> {
+        if (numberOfSeasons <= 0) return emptyList()
+        return (1..numberOfSeasons).mapNotNull { seasonNumber ->
+            movieRepository.getTvSeason(tmdbId, seasonNumber).getOrNull()
+        }
+    }
+
+    private fun currentMediaItem(): MediaItem? =
+        (_uiState.value as? DetailUiState.Success)?.mediaItem
 
     companion object {
+        private const val MEDIA_TYPE_TV = "tv"
         private const val UNKNOWN_ERROR = "Unknown error"
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
@@ -163,7 +177,6 @@ class DetailViewModel(
     }
 }
 
-/** One-shot events emitted by [DetailViewModel] for snackbar feedback. */
 sealed interface DetailEvent {
     data object MovieSaved : DetailEvent
     data object MovieRemoved : DetailEvent

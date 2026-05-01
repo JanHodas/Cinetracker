@@ -2,6 +2,7 @@ package com.example.cinetracker.data.repository
 
 import com.example.cinetracker.data.local.MovieDao
 import com.example.cinetracker.data.remote.TmdbApi
+import com.example.cinetracker.data.remote.dto.TmdbEpisodeDto
 import com.example.cinetracker.domain.mapper.toDomain
 import com.example.cinetracker.domain.mapper.toEntity
 import com.example.cinetracker.domain.model.MediaItem
@@ -155,7 +156,20 @@ class MovieRepository(
      * No offline fallback — episode data is not stored locally.
      */
     suspend fun getTvSeason(tvId: Int, seasonNumber: Int): Result<Season> = runCatching {
-        tmdbApi.getTvSeason(tvId, seasonNumber).toDomain()
+        val detail = tmdbApi.getTvSeason(tvId, seasonNumber)
+        if (detail.episodes.any { it.overview.isBlank() }) {
+            val enDetail = runCatching {
+                tmdbApi.getTvSeason(tvId, seasonNumber, language = FALLBACK_LANGUAGE)
+            }.getOrNull()
+
+            detail.copy(
+                episodes = detail.episodes.withEpisodeOverviewFallback(
+                    fallbackEpisodes = enDetail?.episodes.orEmpty(),
+                ),
+            ).toDomain()
+        } else {
+            detail.toDomain()
+        }
     }
 
     // ── Local (Room) ────────────────────────────────────────────────
@@ -342,6 +356,30 @@ class MovieRepository(
         val movie = ensureMovieGenres()
         val tv = ensureTvGenres()
         return movie + tv
+    }
+
+    /**
+     * Fills blank episode overviews from the fallback-language response by
+     * matching episodes on TMDB id first and episode number second.
+     */
+    private fun List<TmdbEpisodeDto>.withEpisodeOverviewFallback(
+        fallbackEpisodes: List<TmdbEpisodeDto>,
+    ): List<TmdbEpisodeDto> {
+        if (fallbackEpisodes.isEmpty()) return this
+
+        val fallbackById = fallbackEpisodes.associateBy { it.id }
+        val fallbackByEpisodeNumber = fallbackEpisodes.associateBy { it.episodeNumber }
+
+        return map { episode ->
+            if (episode.overview.isNotBlank()) {
+                episode
+            } else {
+                val fallbackOverview = fallbackById[episode.id]?.overview
+                    ?: fallbackByEpisodeNumber[episode.episodeNumber]?.overview
+                    ?: ""
+                episode.copy(overview = fallbackOverview)
+            }
+        }
     }
 
     companion object {

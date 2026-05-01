@@ -19,14 +19,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkRemove
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,11 +57,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
-import com.example.cinetracker.domain.model.Movie
+import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.SavedMovie
+import com.example.cinetracker.domain.model.Season
+import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.domain.util.TmdbImageUrl
 import com.example.cinetracker.ui.components.AsyncMoviePoster
+import com.example.cinetracker.ui.components.SeasonCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,7 +121,8 @@ fun DetailScreen(
                     onRetry = viewModel::retry,
                 )
                 is DetailUiState.Success -> SuccessContent(
-                    movie = state.movie,
+                    mediaItem = state.mediaItem,
+                    seasons = state.seasons,
                     savedMovie = savedState,
                     onSaveToList = viewModel::saveToList,
                     onUpdateStatus = viewModel::updateStatus,
@@ -133,10 +135,11 @@ fun DetailScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SuccessContent(
-    movie: Movie,
+    mediaItem: MediaItem,
+    seasons: List<Season>,
     savedMovie: SavedMovie?,
     onSaveToList: (WatchStatus) -> Unit,
     onUpdateStatus: (WatchStatus) -> Unit,
@@ -152,7 +155,7 @@ private fun SuccessContent(
             .fillMaxSize()
             .verticalScroll(scrollState),
     ) {
-        BackdropHeader(movie = movie)
+        BackdropHeader(mediaItem = mediaItem)
 
         Column(
             modifier = Modifier
@@ -161,13 +164,13 @@ private fun SuccessContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = movie.title,
+                text = mediaItem.title,
                 style = MaterialTheme.typography.headlineSmall,
             )
 
-            MetadataRow(movie = movie)
+            MetadataRow(mediaItem = mediaItem)
 
-            if (movie.genres.isNotEmpty()) {
+            if (mediaItem.genres.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.detail_genres_title),
                     style = MaterialTheme.typography.titleMedium,
@@ -176,8 +179,8 @@ private fun SuccessContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    movie.genres.forEach { genre ->
-                        AssistChip(onClick = { /* no-op */ }, label = { Text(genre) })
+                    mediaItem.genres.forEach { genre ->
+                        AssistChip(onClick = { }, label = { Text(genre) })
                     }
                 }
             }
@@ -187,13 +190,33 @@ private fun SuccessContent(
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = movie.overview.ifBlank { stringResource(R.string.detail_no_overview) },
+                text = mediaItem.overview.ifBlank { stringResource(R.string.detail_no_overview) },
                 style = MaterialTheme.typography.bodyMedium,
             )
 
+            if (mediaItem is TvShow) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Text(
+                    text = stringResource(R.string.detail_seasons_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (seasons.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.detail_no_seasons),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        seasons.forEach { season ->
+                            SeasonCard(season = season)
+                        }
+                    }
+                }
+            }
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            // ── Watch-status section ────────────────────────────────
             Text(
                 text = stringResource(R.string.detail_status_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -206,7 +229,6 @@ private fun SuccessContent(
                 },
             )
 
-            // ── Rating (only for saved + WATCHED) ───────────────────
             AnimatedVisibility(visible = savedMovie?.watchStatus == WatchStatus.WATCHED) {
                 RatingSection(
                     currentRating = savedMovie?.userRating,
@@ -214,7 +236,6 @@ private fun SuccessContent(
                 )
             }
 
-            // ── Personal note (only when saved) ─────────────────────
             AnimatedVisibility(visible = isSaved) {
                 NoteSection(
                     currentNote = savedMovie?.note.orEmpty(),
@@ -222,7 +243,6 @@ private fun SuccessContent(
                 )
             }
 
-            // ── Remove button (only when saved) ─────────────────────
             if (isSaved) {
                 Spacer(modifier = Modifier.height(4.dp))
                 OutlinedButton(
@@ -242,11 +262,6 @@ private fun SuccessContent(
     }
 }
 
-/**
- * Three-segment toggle for [WatchStatus]. When nothing is selected
- * ([currentStatus] == null) every segment is unselected and tapping
- * one triggers the initial save.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WatchStatusSelector(
@@ -272,10 +287,6 @@ private fun WatchStatusSelector(
     }
 }
 
-/**
- * Slider for rating 1–10. Keeps local state while the user drags,
- * commits on release (finger up).
- */
 @Composable
 private fun RatingSection(
     currentRating: Float?,
@@ -288,7 +299,6 @@ private fun RatingSection(
         )
         var sliderValue by rememberSaveable { mutableFloatStateOf(currentRating ?: 5f) }
 
-        // Sync with external changes (e.g. first time savedMovie appears)
         LaunchedEffect(currentRating) {
             if (currentRating != null) sliderValue = currentRating
         }
@@ -303,22 +313,16 @@ private fun RatingSection(
             onValueChange = { sliderValue = it },
             onValueChangeFinished = { onRatingChanged(sliderValue) },
             valueRange = 1f..10f,
-            steps = 8, // 1,2,3,…,10 → 8 intermediate steps
+            steps = 8,
         )
     }
 }
 
-/**
- * Editable personal note. Uses local state and commits on focus loss
- * via a debounce-like approach (commits the latest value when the
- * composable leaves composition or the note content diverges).
- */
 @Composable
 private fun NoteSection(
     currentNote: String,
     onNoteChanged: (String) -> Unit,
 ) {
-    // Local draft that the user types into; initialised from Room value.
     var draft by rememberSaveable(currentNote) { mutableStateOf(currentNote) }
 
     OutlinedTextField(
@@ -336,7 +340,7 @@ private fun NoteSection(
 }
 
 @Composable
-private fun BackdropHeader(movie: Movie) {
+private fun BackdropHeader(mediaItem: MediaItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -344,8 +348,8 @@ private fun BackdropHeader(movie: Movie) {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AsyncMoviePoster(
-            posterPath = movie.posterPath,
-            contentDescription = movie.title,
+            posterPath = mediaItem.posterPath,
+            contentDescription = mediaItem.title,
             size = TmdbImageUrl.POSTER_W500,
             modifier = Modifier
                 .width(140.dp)
@@ -355,12 +359,12 @@ private fun BackdropHeader(movie: Movie) {
 }
 
 @Composable
-private fun MetadataRow(movie: Movie) {
+private fun MetadataRow(mediaItem: MediaItem) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val year = movie.releaseDate?.take(4)?.takeIf { it.length == 4 }
+        val year = mediaItem.releaseDate?.take(4)?.takeIf { it.length == 4 }
         if (year != null) {
             Text(
                 text = year,
@@ -368,7 +372,7 @@ private fun MetadataRow(movie: Movie) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        movie.tmdbRating?.let { rating ->
+        mediaItem.tmdbRating?.let { rating ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Filled.Star,
@@ -382,6 +386,18 @@ private fun MetadataRow(movie: Movie) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
+        if (mediaItem is TvShow) {
+            Text(
+                text = stringResource(R.string.detail_season_count, mediaItem.numberOfSeasons),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.detail_episode_count, mediaItem.numberOfEpisodes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
