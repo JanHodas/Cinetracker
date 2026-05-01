@@ -53,9 +53,12 @@
     <string name="mylist_filter_want">Chcem pozrieť</string>
     <string name="mylist_filter_watching">Pozerám</string>
     <string name="mylist_filter_watched">Pozreté</string>
-    <string name="mylist_empty">Zatiaľ si nepridala žiadny film.\nHľadaj a pridávaj cez vyhľadávanie.</string>
-    <string name="mylist_empty_filtered">Žiadne filmy v tejto kategórii.</string>
-    <string name="mylist_deleted_snackbar">Film odstránený</string>
+    <string name="mylist_media_all">Všetko</string>
+    <string name="mylist_media_movies">Filmy</string>
+    <string name="mylist_media_tv">Seriály</string>
+    <string name="mylist_empty">Zatiaľ tu nemáš žiadne filmy ani seriály.\nHľadaj a pridávaj cez vyhľadávanie.</string>
+    <string name="mylist_empty_filtered">Žiadne položky pre zvolený filter.</string>
+    <string name="mylist_deleted_snackbar">Položka odstránená</string>
     <string name="mylist_undo">Späť</string>
 
     <!-- Stats screen -->

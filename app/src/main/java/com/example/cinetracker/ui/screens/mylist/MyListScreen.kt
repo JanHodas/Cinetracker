@@ -77,16 +77,24 @@ fun MyListScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            FilterRow(
-                activeFilter = uiState.activeFilter,
-                onFilterSelected = viewModel::setFilter,
+            StatusFilterRow(
+                activeFilter = uiState.activeStatusFilter,
+                onFilterSelected = viewModel::setStatusFilter,
             )
 
-            if (uiState.movies.isEmpty()) {
-                EmptyState(hasFilter = uiState.activeFilter != null)
+            MediaTypeFilterRow(
+                activeFilter = uiState.activeMediaTypeFilter,
+                onFilterSelected = viewModel::setMediaTypeFilter,
+            )
+
+            if (uiState.items.isEmpty()) {
+                EmptyState(
+                    hasStatusFilter = uiState.activeStatusFilter != null,
+                    hasMediaTypeFilter = uiState.activeMediaTypeFilter != null,
+                )
             } else {
                 MovieList(
-                    movies = uiState.movies,
+                    items = uiState.items,
                     onItemClick = onItemClick,
                     onDelete = { saved ->
                         viewModel.deleteMovie(saved)
@@ -104,7 +112,7 @@ fun MyListScreen(
 }
 
 @Composable
-private fun FilterRow(
+private fun StatusFilterRow(
     activeFilter: WatchStatus?,
     onFilterSelected: (WatchStatus?) -> Unit,
 ) {
@@ -131,24 +139,51 @@ private fun FilterRow(
     }
 }
 
+@Composable
+private fun MediaTypeFilterRow(
+    activeFilter: String?,
+    onFilterSelected: (String?) -> Unit,
+) {
+    val filters = listOf(
+        null to stringResource(R.string.mylist_media_all),
+        MyListViewModel.MEDIA_TYPE_MOVIE to stringResource(R.string.mylist_media_movies),
+        MyListViewModel.MEDIA_TYPE_TV to stringResource(R.string.mylist_media_tv),
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        filters.forEach { (mediaType, label) ->
+            FilterChip(
+                selected = activeFilter == mediaType,
+                onClick = { onFilterSelected(mediaType) },
+                label = { Text(label) },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MovieList(
-    movies: List<SavedMovie>,
+    items: List<SavedMovie>,
     onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     onDelete: (SavedMovie) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp),
+        contentPadding = PaddingValues(bottom = 16.dp, top = 8.dp),
     ) {
         items(
-            items = movies,
+            items = items,
             key = { it.movie.tmdbId },
         ) { savedMovie ->
             val mediaType = when (savedMovie.movie) {
-                is Movie -> "movie"
-                is TvShow -> "tv"
+                is Movie -> MyListViewModel.MEDIA_TYPE_MOVIE
+                is TvShow -> MyListViewModel.MEDIA_TYPE_TV
             }
             SwipeToDismissItem(
                 savedMovie = savedMovie,
@@ -168,7 +203,6 @@ private fun SwipeToDismissItem(
 ) {
     val dismissState = rememberSwipeToDismissBoxState()
 
-    // Trigger deletion when the swipe settles at EndToStart.
     LaunchedEffect(dismissState.currentValue) {
         if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
             onDelete()
@@ -210,7 +244,10 @@ private fun SwipeToDismissItem(
 }
 
 @Composable
-private fun EmptyState(hasFilter: Boolean) {
+private fun EmptyState(
+    hasStatusFilter: Boolean,
+    hasMediaTypeFilter: Boolean,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -218,7 +255,7 @@ private fun EmptyState(hasFilter: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (hasFilter) {
+            text = if (hasStatusFilter || hasMediaTypeFilter) {
                 stringResource(R.string.mylist_empty_filtered)
             } else {
                 stringResource(R.string.mylist_empty)

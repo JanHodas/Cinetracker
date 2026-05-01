@@ -5,8 +5,10 @@ import com.example.cinetracker.domain.model.WatchStatus
 
 /** UI state for the "My List" screen. */
 data class MyListUiState(
-    /** Currently selected filter tab. `null` = show all. */
-    val activeFilter: WatchStatus? = null,
-    /** Movies matching the active filter. */
-    val movies: List<SavedMovie> = emptyList(),
+    /** Currently selected watch-status filter. `null` = show all. */
+    val activeStatusFilter: WatchStatus? = null,
+    /** Currently selected media-type filter. `null` = show all. */
+    val activeMediaTypeFilter: String? = null,
+    /** Items matching the active filters. */
+    val items: List<SavedMovie> = emptyList(),
 )

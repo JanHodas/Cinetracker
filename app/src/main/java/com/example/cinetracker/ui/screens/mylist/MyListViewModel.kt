@@ -22,43 +22,59 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel for the "My List" screen.
  *
- * Observes the Room-backed saved-movie list reactively. When the user
- * changes the filter chip, the upstream [Flow] switches via [flatMapLatest]
- * so Room only emits rows matching the selected status.
+ * Observes the Room-backed saved list reactively. The active watch-status
+ * filter and media-type filter are combined so Room only emits rows matching
+ * the currently selected filter pair.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MyListViewModel(
     private val movieRepository: MovieRepository,
 ) : ViewModel() {
 
-    private val _activeFilter = MutableStateFlow<WatchStatus?>(null)
+    private val activeStatusFilter = MutableStateFlow<WatchStatus?>(null)
+    private val activeMediaTypeFilter = MutableStateFlow<String?>(null)
 
-    /** The reactive movie list for the currently selected filter. */
-    private val filteredMovies = _activeFilter.flatMapLatest { status ->
-        if (status == null) {
-            movieRepository.observeSavedMovies()
-        } else {
-            movieRepository.observeSavedMoviesByStatus(status)
+    private val filteredItems = combine(
+        activeStatusFilter,
+        activeMediaTypeFilter,
+    ) { status, mediaType ->
+        status to mediaType
+    }.flatMapLatest { (status, mediaType) ->
+        when {
+            status == null && mediaType == null -> movieRepository.observeSavedMovies()
+            status != null && mediaType == null -> movieRepository.observeSavedMoviesByStatus(status)
+            status == null && mediaType != null -> movieRepository.observeSavedByMediaType(mediaType)
+            else -> movieRepository.observeSavedByStatusAndMediaType(
+                status = checkNotNull(status),
+                mediaType = checkNotNull(mediaType),
+            )
         }
     }
 
     val uiState: StateFlow<MyListUiState> = combine(
-        _activeFilter,
-        filteredMovies,
-    ) { filter, movies ->
-        MyListUiState(activeFilter = filter, movies = movies)
+        activeStatusFilter,
+        activeMediaTypeFilter,
+        filteredItems,
+    ) { statusFilter, mediaTypeFilter, items ->
+        MyListUiState(
+            activeStatusFilter = statusFilter,
+            activeMediaTypeFilter = mediaTypeFilter,
+            items = items,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = MyListUiState(),
     )
 
-    /** Change the filter. Pass `null` for "All". */
-    fun setFilter(status: WatchStatus?) {
-        _activeFilter.value = status
+    fun setStatusFilter(status: WatchStatus?) {
+        activeStatusFilter.value = status
     }
 
-    /** Swipe-to-delete a movie from the list. */
+    fun setMediaTypeFilter(mediaType: String?) {
+        activeMediaTypeFilter.value = mediaType
+    }
+
     fun deleteMovie(savedMovie: SavedMovie) {
         viewModelScope.launch {
             movieRepository.removeMovie(savedMovie.movie.tmdbId)
@@ -66,6 +82,9 @@ class MyListViewModel(
     }
 
     companion object {
+        const val MEDIA_TYPE_MOVIE = "movie"
+        const val MEDIA_TYPE_TV = "tv"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as CineTrackApplication

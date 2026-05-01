@@ -53,9 +53,12 @@
     <string name="mylist_filter_want">Want to watch</string>
     <string name="mylist_filter_watching">Watching</string>
     <string name="mylist_filter_watched">Watched</string>
-    <string name="mylist_empty">You haven\'t added any movies yet.\nSearch and add via the search tab.</string>
-    <string name="mylist_empty_filtered">No movies in this category.</string>
-    <string name="mylist_deleted_snackbar">Movie removed</string>
+    <string name="mylist_media_all">All media</string>
+    <string name="mylist_media_movies">Movies</string>
+    <string name="mylist_media_tv">TV shows</string>
+    <string name="mylist_empty">You haven\'t added any movies or TV shows yet.\nSearch and add via the search tab.</string>
+    <string name="mylist_empty_filtered">No items match the selected filter.</string>
+    <string name="mylist_deleted_snackbar">Item removed</string>
     <string name="mylist_undo">Undo</string>
 
     <!-- Stats screen -->
