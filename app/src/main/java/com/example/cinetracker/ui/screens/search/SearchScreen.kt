@@ -70,6 +70,8 @@ fun SearchScreen(
                     MovieListItem(
                         movie = item,
                         onClick = { onItemClick(mediaType, item.tmdbId) },
+                        onAddToList = { viewModel.addToWantToWatch(item) },
+                        isInList = item.tmdbId in state.savedTmdbIds,
                     )
                 }
             }

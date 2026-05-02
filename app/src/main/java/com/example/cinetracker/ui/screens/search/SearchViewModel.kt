@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cinetracker.CineTrackApplication
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.repository.MovieRepository
+import com.example.cinetracker.domain.model.MediaItem
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,8 +22,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel backing the Search screen. Exposes the current text in [query] and a derived
@@ -50,7 +53,7 @@ class SearchViewModel(
     /** Bumped by [retry] (and by the auto-retry observer below) to re-fire the last query. */
     private val retryTick = MutableStateFlow(0)
 
-    val uiState: StateFlow<SearchUiState> = combine(
+    private val searchResultsState: StateFlow<SearchUiState> = combine(
         _query.debounce(DEBOUNCE_MILLIS).distinctUntilChanged(),
         retryTick,
     ) { q, _ -> q }
@@ -81,6 +84,28 @@ class SearchViewModel(
             initialValue = SearchUiState.Idle,
         )
 
+    private val savedTmdbIds: StateFlow<Set<Int>> = movieRepository.observeSavedMovies()
+        .map { items -> items.map { it.movie.tmdbId }.toSet() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MILLIS),
+            initialValue = emptySet(),
+        )
+
+    val uiState: StateFlow<SearchUiState> = combine(
+        searchResultsState,
+        savedTmdbIds,
+    ) { state, savedIds ->
+        when (state) {
+            is SearchUiState.Success -> state.copy(savedTmdbIds = savedIds)
+            else -> state
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MILLIS),
+        initialValue = SearchUiState.Idle,
+    )
+
     init {
         // Auto-recover: when the device transitions offline → online and we're
         // currently showing an error, transparently retry the last query.
@@ -104,6 +129,12 @@ class SearchViewModel(
 
     fun retry() {
         retryTick.value++
+    }
+
+    fun addToWantToWatch(mediaItem: MediaItem) {
+        viewModelScope.launch {
+            movieRepository.saveAsWantToWatchIfMissing(mediaItem)
+        }
     }
 
     companion object {

@@ -232,6 +232,9 @@ class MovieRepository(
         dateAdded: Long = System.currentTimeMillis(),
     ) {
         movieDao.upsert(mediaItem.toEntity(watchStatus, userRating, note, dateAdded))
+        if (mediaItem is TvShow && watchStatus == WatchStatus.WATCHED) {
+            markAllEpisodesWatched(mediaItem)
+        }
     }
 
     /**
@@ -246,6 +249,18 @@ class MovieRepository(
         dateAdded: Long = System.currentTimeMillis(),
     ) {
         saveMedia(movie, watchStatus, userRating, note, dateAdded)
+    }
+
+    /**
+     * Saves the item as "want to watch" only when it is not already in the list.
+     *
+     * @return `true` if a new row was created, `false` if the item already existed.
+     */
+    suspend fun saveAsWantToWatchIfMissing(mediaItem: MediaItem): Boolean {
+        val existing = movieDao.observeByTmdbId(mediaItem.tmdbId).first()
+        if (existing != null) return false
+        saveMedia(mediaItem = mediaItem, watchStatus = WatchStatus.WANT_TO_WATCH)
+        return true
     }
 
     /** Update only the watch status of an already-saved item. */
@@ -263,6 +278,9 @@ class MovieRepository(
                 dateAdded = currentSaved.dateAdded,
             ),
         )
+        if (mediaItem is TvShow && status == WatchStatus.WATCHED) {
+            markAllEpisodesWatched(mediaItem)
+        }
     }
 
     /** Update the user rating of an already-saved item. */
@@ -360,6 +378,7 @@ class MovieRepository(
      * @return `true` if an episode was marked, `false` if all episodes are watched.
      */
     suspend fun markNextEpisodeWatched(tmdbId: Int): Boolean {
+        val savedEntity = movieDao.observeByTmdbId(tmdbId).first()
         val watched = watchedEpisodeDao.getByTmdbId(tmdbId)
             .map { it.seasonNumber to it.episodeNumber }
             .toSet()
@@ -372,11 +391,36 @@ class MovieRepository(
                     watchedEpisodeDao.upsert(
                         WatchedEpisodeEntity(tmdbId = tmdbId, seasonNumber = seasonNumber, episodeNumber = epNum),
                     )
+                    if (savedEntity?.mediaType == "tv" && savedEntity.watchStatus == WatchStatus.WANT_TO_WATCH) {
+                        val savedMovie = savedEntity.toDomain()
+                        updateStatus(
+                            tmdbId = tmdbId,
+                            mediaItem = savedMovie.movie,
+                            status = WatchStatus.WATCHING,
+                            currentSaved = savedMovie,
+                        )
+                    }
                     return true
                 }
             }
         }
         return false // all watched
+    }
+
+    /** Marks every regular episode of the given TV show as watched. */
+    suspend fun markAllEpisodesWatched(tvShow: TvShow) {
+        val structure = getTvSeasonStructure(tvShow.tmdbId) ?: return
+        for ((seasonNumber, episodeCount) in structure) {
+            for (epNum in 1..episodeCount) {
+                watchedEpisodeDao.upsert(
+                    WatchedEpisodeEntity(
+                        tmdbId = tvShow.tmdbId,
+                        seasonNumber = seasonNumber,
+                        episodeNumber = epNum,
+                    ),
+                )
+            }
+        }
     }
 
     /**

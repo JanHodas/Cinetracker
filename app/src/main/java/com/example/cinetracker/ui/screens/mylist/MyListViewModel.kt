@@ -100,6 +100,22 @@ class MyListViewModel(
         return true
     }
 
+    fun toggleMovieWatched(savedMovie: SavedMovie) {
+        viewModelScope.launch {
+            val newStatus = if (savedMovie.watchStatus == WatchStatus.WATCHED) {
+                WatchStatus.WANT_TO_WATCH
+            } else {
+                WatchStatus.WATCHED
+            }
+            movieRepository.updateStatus(
+                tmdbId = savedMovie.movie.tmdbId,
+                mediaItem = savedMovie.movie,
+                status = newStatus,
+                currentSaved = savedMovie,
+            )
+        }
+    }
+
     /** Mark the next unwatched episode for a TV show (MAL-style "+" button). */
     fun incrementEpisode(tmdbId: Int) {
         viewModelScope.launch {

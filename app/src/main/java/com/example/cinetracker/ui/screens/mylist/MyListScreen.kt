@@ -117,6 +117,7 @@ fun MyListScreen(
                             }
                         }
                     },
+                    onToggleMovieWatched = viewModel::toggleMovieWatched,
                     onIncrementEpisode = viewModel::incrementEpisode,
                 )
             }
@@ -187,6 +188,7 @@ private fun MovieList(
     itemRenderVersions: Map<Int, Int>,
     onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     onDelete: (SavedMovie) -> Unit,
+    onToggleMovieWatched: (SavedMovie) -> Unit,
     onIncrementEpisode: (tmdbId: Int) -> Unit,
 ) {
     LazyColumn(
@@ -213,6 +215,12 @@ private fun MovieList(
                 totalEpisodes = if (isTv && totalEpisodes > 0) totalEpisodes else null,
                 onDelete = { onDelete(savedMovie) },
                 onClick = { onItemClick(mediaType, tmdbId) },
+                onToggleWatched = if (!isTv) {
+                    { onToggleMovieWatched(savedMovie) }
+                } else {
+                    null
+                },
+                isWatched = savedMovie.watchStatus == WatchStatus.WATCHED,
                 onIncrementEpisode = if (isTv) {
                     { onIncrementEpisode(tmdbId) }
                 } else {
@@ -231,6 +239,8 @@ private fun SwipeToDismissItem(
     totalEpisodes: Int?,
     onDelete: () -> Unit,
     onClick: () -> Unit,
+    onToggleWatched: (() -> Unit)?,
+    isWatched: Boolean,
     onIncrementEpisode: (() -> Unit)?,
 ) {
     var deleteTriggered by remember(savedMovie.movie.tmdbId) { mutableStateOf(false) }
@@ -306,6 +316,8 @@ private fun SwipeToDismissItem(
             watchStatus = savedMovie.watchStatus,
             watchedEpisodes = watchedEpisodes,
             totalEpisodes = totalEpisodes,
+            onToggleWatched = onToggleWatched,
+            isWatched = isWatched,
             onIncrementEpisode = onIncrementEpisode,
             onDelete = onDelete,
         )

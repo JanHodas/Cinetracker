@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,7 +50,11 @@ fun MovieListItem(
     watchStatus: WatchStatus? = null,
     watchedEpisodes: Int? = null,
     totalEpisodes: Int? = null,
+    onToggleWatched: (() -> Unit)? = null,
+    isWatched: Boolean = false,
     onIncrementEpisode: (() -> Unit)? = null,
+    onAddToList: (() -> Unit)? = null,
+    isInList: Boolean = false,
     onDelete: (() -> Unit)? = null,
 ) {
     val showEpisodeProgress = movie is TvShow && totalEpisodes != null && totalEpisodes > 0
@@ -121,11 +126,28 @@ fun MovieListItem(
                 }
             }
 
-            if (onIncrementEpisode != null || onDelete != null) {
+            if (onToggleWatched != null || onIncrementEpisode != null || onAddToList != null || onDelete != null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
+                    if (onToggleWatched != null) {
+                        IconButton(
+                            onClick = onToggleWatched,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = stringResource(R.string.mylist_toggle_watched),
+                                tint = if (isWatched) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                     if (onIncrementEpisode != null) {
                         IconButton(
                             onClick = onIncrementEpisode,
@@ -135,6 +157,24 @@ fun MovieListItem(
                                 imageVector = Icons.Filled.Add,
                                 contentDescription = stringResource(R.string.mylist_increment_episode),
                                 tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    if (onAddToList != null) {
+                        IconButton(
+                            onClick = onAddToList,
+                            enabled = !isInList,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isInList) Icons.Filled.Check else Icons.Filled.Add,
+                                contentDescription = stringResource(R.string.search_add_to_list),
+                                tint = if (isInList) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                                 modifier = Modifier.size(20.dp),
                             )
                         }

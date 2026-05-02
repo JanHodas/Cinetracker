@@ -91,4 +91,6 @@
     <!-- Common -->
     <string name="common_retry">Try again</string>
     <string name="poster_placeholder_description">Media poster not available</string>
+    <string name="search_add_to_list">Add to list</string>
+    <string name="mylist_toggle_watched">Toggle watched status</string>
 </resources>

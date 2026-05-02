@@ -14,7 +14,10 @@ sealed interface SearchUiState {
     data object Loading : SearchUiState
 
     /** Query returned at least one match (movies and/or TV shows). */
-    data class Success(val results: List<MediaItem>) : SearchUiState
+    data class Success(
+        val results: List<MediaItem>,
+        val savedTmdbIds: Set<Int> = emptySet(),
+    ) : SearchUiState
 
     /** Query was valid but TMDB returned zero results. */
     data object Empty : SearchUiState

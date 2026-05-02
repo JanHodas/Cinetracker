@@ -91,4 +91,6 @@
     <!-- Common -->
     <string name="common_retry">Skúsiť znova</string>
     <string name="poster_placeholder_description">Plagát nie je dostupný</string>
+    <string name="search_add_to_list">Pridať do zoznamu</string>
+    <string name="mylist_toggle_watched">Prepnúť stav pozreté</string>
 </resources>
