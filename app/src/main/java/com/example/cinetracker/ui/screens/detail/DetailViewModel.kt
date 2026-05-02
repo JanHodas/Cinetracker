@@ -60,6 +60,19 @@ class DetailViewModel(
     private val _events = MutableSharedFlow<DetailEvent>()
     val events: SharedFlow<DetailEvent> = _events.asSharedFlow()
 
+    /**
+     * Eagerly-started StateFlow of watched episodes. Always holds the latest
+     * Room data so it is available when [loadTvDetail] transitions to Success
+     * (avoids a race where Room emits before the network call finishes).
+     */
+    private val watchedEpisodesState: StateFlow<Set<Pair<Int, Int>>> =
+        if (mediaType == MEDIA_TYPE_TV) {
+            movieRepository.observeWatchedEpisodes(tmdbId)
+                .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+        } else {
+            MutableStateFlow(emptySet())
+        }
+
     init {
         loadDetail()
 
@@ -71,6 +84,16 @@ class DetailViewModel(
                 }
             }
             .launchIn(viewModelScope)
+
+        // Push watched-episode updates into the UI state reactively.
+        if (mediaType == MEDIA_TYPE_TV) {
+            watchedEpisodesState
+                .onEach { watched ->
+                    val current = _uiState.value as? DetailUiState.Success ?: return@onEach
+                    _uiState.value = current.copy(watchedEpisodes = watched)
+                }
+                .launchIn(viewModelScope)
+        }
     }
 
     fun retry() {
@@ -116,6 +139,13 @@ class DetailViewModel(
         }
     }
 
+    /** Toggle watched status for a specific episode. */
+    fun toggleEpisodeWatched(seasonNumber: Int, episodeNumber: Int) {
+        viewModelScope.launch {
+            movieRepository.toggleEpisodeWatched(tmdbId, seasonNumber, episodeNumber)
+        }
+    }
+
     private fun loadDetail() {
         _uiState.value = DetailUiState.Loading
         viewModelScope.launch {
@@ -144,6 +174,7 @@ class DetailViewModel(
                 _uiState.value = DetailUiState.Success(
                     mediaItem = tvShow,
                     seasons = loadTvSeasons(tvShow.numberOfSeasons),
+                    watchedEpisodes = watchedEpisodesState.value,
                 )
                 loadCastForCurrentItem()
             },

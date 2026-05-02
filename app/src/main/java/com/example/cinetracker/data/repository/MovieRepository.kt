@@ -1,6 +1,9 @@
 package com.example.cinetracker.data.repository
 
+import com.example.cinetracker.data.local.EpisodeWatchCount
 import com.example.cinetracker.data.local.MovieDao
+import com.example.cinetracker.data.local.WatchedEpisodeDao
+import com.example.cinetracker.data.local.WatchedEpisodeEntity
 import com.example.cinetracker.data.remote.TmdbApi
 import com.example.cinetracker.data.remote.dto.TmdbEpisodeDto
 import com.example.cinetracker.domain.mapper.toDomain
@@ -31,6 +34,7 @@ import kotlinx.coroutines.sync.withLock
 class MovieRepository(
     private val tmdbApi: TmdbApi,
     private val movieDao: MovieDao,
+    private val watchedEpisodeDao: WatchedEpisodeDao,
 ) {
     private val genreCacheMutex = Mutex()
     @Volatile private var cachedMovieGenres: Map<Int, String>? = null
@@ -285,9 +289,83 @@ class MovieRepository(
         )
     }
 
-    /** Remove an item from the user's list by TMDB id. */
+    /** Remove an item from the user's list by TMDB id. Also cleans up watched episodes. */
     suspend fun removeMovie(tmdbId: Int) {
         movieDao.deleteByTmdbId(tmdbId)
+        watchedEpisodeDao.deleteByTmdbId(tmdbId)
+    }
+
+    // ── Episode tracking ───────────────────────────────────────────────
+
+    /** Observe all watched episodes for a TV show (for detail screen checkboxes). */
+    fun observeWatchedEpisodes(tmdbId: Int): Flow<Set<Pair<Int, Int>>> =
+        watchedEpisodeDao.observeByTmdbId(tmdbId).map { entities ->
+            entities.map { it.seasonNumber to it.episodeNumber }.toSet()
+        }
+
+    /** Observe per-show watched counts for all TV shows (for MyList badges). */
+    fun observeAllWatchedCounts(): Flow<Map<Int, Int>> =
+        watchedEpisodeDao.observeAllCounts().map { counts ->
+            counts.associate { it.tmdbId to it.count }
+        }
+
+    /** Toggle an episode's watched status: mark if unwatched, unmark if watched. */
+    suspend fun toggleEpisodeWatched(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+        val existing = watchedEpisodeDao.getByTmdbId(tmdbId)
+            .any { it.seasonNumber == seasonNumber && it.episodeNumber == episodeNumber }
+        if (existing) {
+            watchedEpisodeDao.delete(tmdbId, seasonNumber, episodeNumber)
+        } else {
+            watchedEpisodeDao.upsert(
+                WatchedEpisodeEntity(tmdbId = tmdbId, seasonNumber = seasonNumber, episodeNumber = episodeNumber),
+            )
+        }
+    }
+
+    /**
+     * Marks the next unwatched episode for a TV show (MAL-style "+" button).
+     *
+     * Iterates seasons in order and finds the first episode that has not been
+     * marked as watched. Uses a single TMDB API call to retrieve the season
+     * structure (episode counts per season); results are cached in memory.
+     *
+     * @return `true` if an episode was marked, `false` if all episodes are watched.
+     */
+    suspend fun markNextEpisodeWatched(tmdbId: Int): Boolean {
+        val watched = watchedEpisodeDao.getByTmdbId(tmdbId)
+            .map { it.seasonNumber to it.episodeNumber }
+            .toSet()
+
+        val structure = getTvSeasonStructure(tmdbId) ?: return false
+
+        for ((seasonNumber, episodeCount) in structure) {
+            for (epNum in 1..episodeCount) {
+                if ((seasonNumber to epNum) !in watched) {
+                    watchedEpisodeDao.upsert(
+                        WatchedEpisodeEntity(tmdbId = tmdbId, seasonNumber = seasonNumber, episodeNumber = epNum),
+                    )
+                    return true
+                }
+            }
+        }
+        return false // all watched
+    }
+
+    /**
+     * In-memory cache of season structures (seasonNumber to episodeCount pairs)
+     * to avoid repeated TMDB calls when the "+" button is tapped rapidly.
+     */
+    private val tvStructureCache = mutableMapOf<Int, List<Pair<Int, Int>>>()
+
+    private suspend fun getTvSeasonStructure(tmdbId: Int): List<Pair<Int, Int>>? {
+        tvStructureCache[tmdbId]?.let { return it }
+        val detail = runCatching { tmdbApi.getTvDetail(tmdbId) }.getOrNull() ?: return null
+        val structure = detail.seasons
+            .filter { it.seasonNumber > 0 }
+            .sortedBy { it.seasonNumber }
+            .map { it.seasonNumber to it.episodeCount }
+        tvStructureCache[tmdbId] = structure
+        return structure
     }
 
     // ── Stats (unfiltered — all media types) ────────────────────────

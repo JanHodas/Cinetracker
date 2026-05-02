@@ -11,6 +11,8 @@ sealed interface DetailUiState {
         val mediaItem: MediaItem,
         val cast: List<CastMember> = emptyList(),
         val seasons: List<Season> = emptyList(),
+        /** Set of (seasonNumber, episodeNumber) pairs that the user has watched. */
+        val watchedEpisodes: Set<Pair<Int, Int>> = emptySet(),
     ) : DetailUiState
     data class Error(val message: String) : DetailUiState
 }

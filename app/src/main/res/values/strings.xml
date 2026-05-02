@@ -40,6 +40,8 @@
     <string name="detail_season_count">%1$d sérií</string>
     <string name="detail_episode_count">%1$d epizód</string>
     <string name="detail_episode_label">Epizóda %1$d: %2$s</string>
+    <string name="detail_episode_progress">Pozreté: %1$d/%2$d</string>
+    <string name="detail_toggle_episode">Prepnúť stav epizódy</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Hľadaj film alebo seriál…</string>
@@ -62,6 +64,7 @@
     <string name="mylist_empty_filtered">Žiadne položky pre zvolený filter.</string>
     <string name="mylist_deleted_snackbar">Položka odstránená</string>
     <string name="mylist_undo">Späť</string>
+    <string name="mylist_increment_episode">Pridať epizódu</string>
 
     <!-- Stats screen -->
     <string name="stats_title">Štatistiky</string>

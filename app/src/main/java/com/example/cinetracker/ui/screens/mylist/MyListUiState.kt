@@ -11,4 +11,6 @@ data class MyListUiState(
     val activeMediaTypeFilter: String? = null,
     /** Items matching the active filters. */
     val items: List<SavedMovie> = emptyList(),
+    /** Watched episode counts per TV show (tmdbId -> count). */
+    val watchedEpisodeCounts: Map<Int, Int> = emptyMap(),
 )

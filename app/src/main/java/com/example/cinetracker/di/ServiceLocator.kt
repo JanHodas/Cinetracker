@@ -3,6 +3,7 @@ package com.example.cinetracker.di
 import android.content.Context
 import com.example.cinetracker.data.local.CineTrackDatabase
 import com.example.cinetracker.data.local.MovieDao
+import com.example.cinetracker.data.local.WatchedEpisodeDao
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.remote.NetworkModule
 import com.example.cinetracker.data.remote.TmdbApi
@@ -22,8 +23,9 @@ class ServiceLocator(
         CineTrackDatabase.getInstance(applicationContext)
     }
     val movieDao: MovieDao by lazy { database.movieDao() }
+    val watchedEpisodeDao: WatchedEpisodeDao by lazy { database.watchedEpisodeDao() }
     val tmdbApi: TmdbApi = NetworkModule.tmdbApi
-    val movieRepository: MovieRepository by lazy { MovieRepository(tmdbApi, movieDao) }
+    val movieRepository: MovieRepository by lazy { MovieRepository(tmdbApi, movieDao, watchedEpisodeDao) }
     val networkConnectivityObserver: NetworkConnectivityObserver by lazy {
         NetworkConnectivityObserver(applicationContext)
     }

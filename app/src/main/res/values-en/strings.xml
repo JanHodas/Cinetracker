@@ -40,6 +40,8 @@
     <string name="detail_season_count">%1$d seasons</string>
     <string name="detail_episode_count">%1$d episodes</string>
     <string name="detail_episode_label">Episode %1$d: %2$s</string>
+    <string name="detail_episode_progress">Watched: %1$d/%2$d</string>
+    <string name="detail_toggle_episode">Toggle episode status</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Search a movie or TV show…</string>
@@ -62,6 +64,7 @@
     <string name="mylist_empty_filtered">No items match the selected filter.</string>
     <string name="mylist_deleted_snackbar">Item removed</string>
     <string name="mylist_undo">Undo</string>
+    <string name="mylist_increment_episode">Add episode</string>
 
     <!-- Stats screen -->
     <string name="stats_title">Statistics</string>

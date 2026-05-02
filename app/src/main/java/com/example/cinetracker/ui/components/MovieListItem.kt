@@ -9,9 +9,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,16 +35,27 @@ import com.example.cinetracker.domain.model.TvShow
  * Compact list row representing a single media item (movie or TV show).
  *
  * Layout: poster on the left (60×90 dp), then title / badge / year / overview
- * snippet on the right. TV shows display a small "Seriál" badge next to the year.
- * Tapping anywhere on the row triggers [onClick].
+ * snippet on the right. TV shows display a small badge next to the year.
+ *
+ * When [episodeProgress] is provided (e.g. "5/24"), it is shown as a small
+ * progress label. When [onIncrementEpisode] is non-null, a "+" button appears
+ * at the trailing edge for MAL-style quick episode tracking.
  */
 @Composable
 fun MovieListItem(
     movie: MediaItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    episodeProgress: String? = null,
+    onIncrementEpisode: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
-    Column(modifier = modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -78,6 +95,9 @@ fun MovieListItem(
                     if (movie is TvShow) {
                         MediaTypeBadge(label = stringResource(R.string.badge_tv))
                     }
+                    if (episodeProgress != null) {
+                        EpisodeProgressBadge(progress = episodeProgress)
+                    }
                 }
                 if (movie.overview.isNotBlank()) {
                     Text(
@@ -86,6 +106,39 @@ fun MovieListItem(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+            }
+            if (onIncrementEpisode != null || onDelete != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
+                    if (onIncrementEpisode != null) {
+                        IconButton(
+                            onClick = onIncrementEpisode,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = stringResource(R.string.mylist_increment_episode),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    if (onDelete != null) {
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.mylist_deleted_snackbar),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -106,6 +159,23 @@ private fun MediaTypeBadge(label: String) {
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+/** Small badge showing episode watch progress, e.g. "5/24 ep". */
+@Composable
+private fun EpisodeProgressBadge(progress: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = progress,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }

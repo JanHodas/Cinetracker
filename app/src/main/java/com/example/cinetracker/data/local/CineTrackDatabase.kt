@@ -16,14 +16,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * column (`"movie"` / `"tv"`) discriminates between movies and TV shows.
  */
 @Database(
-    entities = [MovieEntity::class],
-    version = 2,
+    entities = [MovieEntity::class, WatchedEpisodeEntity::class],
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class CineTrackDatabase : RoomDatabase() {
 
     abstract fun movieDao(): MovieDao
+    abstract fun watchedEpisodeDao(): WatchedEpisodeDao
 
     companion object {
         private const val DATABASE_NAME = "cinetrack.db"
@@ -37,6 +38,24 @@ abstract class CineTrackDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE movies ADD COLUMN mediaType TEXT NOT NULL DEFAULT 'movie'")
                 db.execSQL("ALTER TABLE movies ADD COLUMN numberOfSeasons INTEGER DEFAULT NULL")
+            }
+        }
+
+        /**
+         * Migration from v2 -> v3: adds `numberOfEpisodes` column to movies table
+         * and creates the `watched_episodes` table for episode-level watch tracking.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE movies ADD COLUMN numberOfEpisodes INTEGER DEFAULT NULL")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS watched_episodes (" +
+                        "tmdbId INTEGER NOT NULL, " +
+                        "seasonNumber INTEGER NOT NULL, " +
+                        "episodeNumber INTEGER NOT NULL, " +
+                        "watchedAt INTEGER NOT NULL, " +
+                        "PRIMARY KEY(tmdbId, seasonNumber, episodeNumber))",
+                )
             }
         }
 
@@ -54,7 +73,7 @@ abstract class CineTrackDatabase : RoomDatabase() {
                     CineTrackDatabase::class.java,
                     DATABASE_NAME,
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }

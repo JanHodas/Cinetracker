@@ -135,12 +135,14 @@ fun DetailScreen(
                     mediaItem = state.mediaItem,
                     cast = state.cast,
                     seasons = state.seasons,
+                    watchedEpisodes = state.watchedEpisodes,
                     savedMovie = savedState,
                     onSaveToList = viewModel::saveToList,
                     onUpdateStatus = viewModel::updateStatus,
                     onUpdateRating = viewModel::updateRating,
                     onUpdateNote = viewModel::updateNote,
                     onRemoveFromList = viewModel::removeFromList,
+                    onToggleEpisodeWatched = viewModel::toggleEpisodeWatched,
                 )
             }
         }
@@ -153,12 +155,14 @@ private fun SuccessContent(
     mediaItem: MediaItem,
     cast: List<CastMember>,
     seasons: List<Season>,
+    watchedEpisodes: Set<Pair<Int, Int>>,
     savedMovie: SavedMovie?,
     onSaveToList: (WatchStatus) -> Unit,
     onUpdateStatus: (WatchStatus) -> Unit,
     onUpdateRating: (Float?) -> Unit,
     onUpdateNote: (String) -> Unit,
     onRemoveFromList: () -> Unit,
+    onToggleEpisodeWatched: (seasonNumber: Int, episodeNumber: Int) -> Unit,
 ) {
     val scrollState = rememberScrollState()
     val isSaved = savedMovie != null
@@ -235,7 +239,17 @@ private fun SuccessContent(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         seasons.forEach { season ->
-                            SeasonCard(season = season)
+                            val seasonWatched = watchedEpisodes
+                                .filter { it.first == season.seasonNumber }
+                                .map { it.second }
+                                .toSet()
+                            SeasonCard(
+                                season = season,
+                                watchedEpisodes = seasonWatched,
+                                onToggleEpisode = { epNum ->
+                                    onToggleEpisodeWatched(season.seasonNumber, epNum)
+                                },
+                            )
                         }
                     }
                 }

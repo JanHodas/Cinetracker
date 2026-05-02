@@ -95,6 +95,7 @@ fun MyListScreen(
             } else {
                 MovieList(
                     items = uiState.items,
+                    watchedEpisodeCounts = uiState.watchedEpisodeCounts,
                     onItemClick = onItemClick,
                     onDelete = { saved ->
                         viewModel.deleteMovie(saved)
@@ -105,6 +106,7 @@ fun MyListScreen(
                             )
                         }
                     },
+                    onIncrementEpisode = viewModel::incrementEpisode,
                 )
             }
         }
@@ -170,8 +172,10 @@ private fun MediaTypeFilterRow(
 @Composable
 private fun MovieList(
     items: List<SavedMovie>,
+    watchedEpisodeCounts: Map<Int, Int>,
     onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     onDelete: (SavedMovie) -> Unit,
+    onIncrementEpisode: (tmdbId: Int) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -185,10 +189,28 @@ private fun MovieList(
                 is Movie -> MyListViewModel.MEDIA_TYPE_MOVIE
                 is TvShow -> MyListViewModel.MEDIA_TYPE_TV
             }
+            val isTv = savedMovie.movie is TvShow
+            val tmdbId = savedMovie.movie.tmdbId
+            val watchedCount = watchedEpisodeCounts[tmdbId] ?: 0
+            val totalEpisodes = (savedMovie.movie as? TvShow)?.numberOfEpisodes ?: 0
+            val episodeProgress = if (isTv && totalEpisodes > 0) {
+                "$watchedCount/$totalEpisodes ep"
+            } else if (isTv && watchedCount > 0) {
+                "$watchedCount ep"
+            } else {
+                null
+            }
+
             SwipeToDismissItem(
                 savedMovie = savedMovie,
+                episodeProgress = episodeProgress,
                 onDelete = { onDelete(savedMovie) },
-                onClick = { onItemClick(mediaType, savedMovie.movie.tmdbId) },
+                onClick = { onItemClick(mediaType, tmdbId) },
+                onIncrementEpisode = if (isTv) {
+                    { onIncrementEpisode(tmdbId) }
+                } else {
+                    null
+                },
             )
         }
     }
@@ -198,8 +220,10 @@ private fun MovieList(
 @Composable
 private fun SwipeToDismissItem(
     savedMovie: SavedMovie,
+    episodeProgress: String?,
     onDelete: () -> Unit,
     onClick: () -> Unit,
+    onIncrementEpisode: (() -> Unit)?,
 ) {
     val dismissState = rememberSwipeToDismissBoxState()
 
@@ -239,6 +263,9 @@ private fun SwipeToDismissItem(
         MovieListItem(
             movie = savedMovie.movie,
             onClick = onClick,
+            episodeProgress = episodeProgress,
+            onIncrementEpisode = onIncrementEpisode,
+            onDelete = onDelete,
         )
     }
 }

@@ -51,15 +51,19 @@ class MyListViewModel(
         }
     }
 
+    private val watchedCounts = movieRepository.observeAllWatchedCounts()
+
     val uiState: StateFlow<MyListUiState> = combine(
         activeStatusFilter,
         activeMediaTypeFilter,
         filteredItems,
-    ) { statusFilter, mediaTypeFilter, items ->
+        watchedCounts,
+    ) { statusFilter, mediaTypeFilter, items, counts ->
         MyListUiState(
             activeStatusFilter = statusFilter,
             activeMediaTypeFilter = mediaTypeFilter,
             items = items,
+            watchedEpisodeCounts = counts,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -78,6 +82,13 @@ class MyListViewModel(
     fun deleteMovie(savedMovie: SavedMovie) {
         viewModelScope.launch {
             movieRepository.removeMovie(savedMovie.movie.tmdbId)
+        }
+    }
+
+    /** Mark the next unwatched episode for a TV show (MAL-style "+" button). */
+    fun incrementEpisode(tmdbId: Int) {
+        viewModelScope.launch {
+            movieRepository.markNextEpisodeWatched(tmdbId)
         }
     }
 

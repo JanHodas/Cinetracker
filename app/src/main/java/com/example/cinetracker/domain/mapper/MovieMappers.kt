@@ -66,7 +66,7 @@ fun MovieEntity.toDomain(): SavedMovie = SavedMovie(
             genres = genres,
             tmdbRating = tmdbRating,
             numberOfSeasons = numberOfSeasons ?: 0,
-            numberOfEpisodes = 0,
+            numberOfEpisodes = numberOfEpisodes ?: 0,
         )
         else -> Movie(
             tmdbId = tmdbId,
@@ -113,6 +113,7 @@ fun MediaItem.toEntity(
         is TvShow -> "tv"
     },
     numberOfSeasons = (this as? TvShow)?.numberOfSeasons,
+    numberOfEpisodes = (this as? TvShow)?.numberOfEpisodes,
 )
 
 // ── Multi-search result → Domain ───────────────────────────────────

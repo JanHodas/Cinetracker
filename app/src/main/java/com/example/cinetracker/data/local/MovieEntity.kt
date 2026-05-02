@@ -32,4 +32,6 @@ data class MovieEntity(
     val mediaType: String = "movie",
     /** TV-only: total number of seasons. `null` for movies. */
     val numberOfSeasons: Int? = null,
+    /** TV-only: total number of episodes across all seasons. `null` for movies. */
+    val numberOfEpisodes: Int? = null,
 )
