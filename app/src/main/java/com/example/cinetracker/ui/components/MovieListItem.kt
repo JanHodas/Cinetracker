@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.example.cinetracker.R
 import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.TvShow
+import com.example.cinetracker.domain.model.WatchStatus
 
 /**
  * Compact list row representing a single media item (movie or TV show).
@@ -45,6 +46,7 @@ fun MovieListItem(
     movie: MediaItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    watchStatus: WatchStatus? = null,
     watchedEpisodes: Int? = null,
     totalEpisodes: Int? = null,
     onIncrementEpisode: (() -> Unit)? = null,
@@ -94,8 +96,13 @@ fun MovieListItem(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (movie is TvShow) {
-                        MediaTypeBadge(label = stringResource(R.string.badge_tv))
+                    MediaTypeBadge(
+                        label = stringResource(
+                            if (movie is TvShow) R.string.badge_tv else R.string.badge_movie,
+                        ),
+                    )
+                    watchStatus?.let { status ->
+                        WatchStatusBadge(status = status)
                     }
                 }
 
@@ -199,6 +206,40 @@ private fun MediaTypeBadge(label: String) {
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+@Composable
+private fun WatchStatusBadge(status: WatchStatus) {
+    val (label, backgroundColor, contentColor) = when (status) {
+        WatchStatus.WANT_TO_WATCH -> Triple(
+            stringResource(R.string.detail_status_want),
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        WatchStatus.WATCHING -> Triple(
+            stringResource(R.string.detail_status_watching),
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        WatchStatus.WATCHED -> Triple(
+            stringResource(R.string.detail_status_watched),
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(backgroundColor)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
         )
     }
 }
