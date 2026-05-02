@@ -93,4 +93,6 @@
     <string name="poster_placeholder_description">Media poster not available</string>
     <string name="search_add_to_list">Add to list</string>
     <string name="mylist_toggle_watched">Toggle watched status</string>
+    <string name="language_slovak">Slovak</string>
+    <string name="language_english">English</string>
 </resources>

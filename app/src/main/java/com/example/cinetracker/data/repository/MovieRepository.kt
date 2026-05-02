@@ -1,5 +1,6 @@
 package com.example.cinetracker.data.repository
 
+import android.content.Context
 import com.example.cinetracker.data.local.EpisodeWatchCount
 import com.example.cinetracker.data.local.MovieDao
 import com.example.cinetracker.data.local.WatchedEpisodeDao
@@ -16,6 +17,7 @@ import com.example.cinetracker.domain.model.Season
 import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.data.remote.dto.TmdbMultiSearchResultDto
+import com.example.cinetracker.ui.language.LanguageManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -32,13 +34,14 @@ import kotlinx.coroutines.sync.withLock
  * that Room keeps up-to-date automatically.
  */
 class MovieRepository(
+    private val applicationContext: Context,
     private val tmdbApi: TmdbApi,
     private val movieDao: MovieDao,
     private val watchedEpisodeDao: WatchedEpisodeDao,
 ) {
     private val genreCacheMutex = Mutex()
-    @Volatile private var cachedMovieGenres: Map<Int, String>? = null
-    @Volatile private var cachedTvGenres: Map<Int, String>? = null
+    @Volatile private var cachedMovieGenres: Map<String, Map<Int, String>> = emptyMap()
+    @Volatile private var cachedTvGenres: Map<String, Map<Int, String>> = emptyMap()
 
     // ── Remote — Search ────────────────────────────────────────────
 
@@ -47,8 +50,9 @@ class MovieRepository(
      */
     suspend fun searchMovies(query: String): Result<List<Movie>> = runCatching {
         if (query.isBlank()) return@runCatching emptyList()
-        val genres = ensureMovieGenres()
-        tmdbApi.searchMovies(query = query)
+        val language = currentTmdbLanguage()
+        val genres = ensureMovieGenres(language)
+        tmdbApi.searchMovies(query = query, language = language)
             .results
             .map { it.toDomain(genres) }
     }
@@ -63,11 +67,12 @@ class MovieRepository(
      */
     suspend fun searchMulti(query: String): Result<List<MediaItem>> = runCatching {
         if (query.isBlank()) return@runCatching emptyList()
-        val allGenres = ensureAllGenres()
-        val skResults = tmdbApi.searchMulti(query = query).results
+        val language = currentTmdbLanguage()
+        val allGenres = ensureAllGenres(language)
+        val localizedResults = tmdbApi.searchMulti(query = query, language = language).results
 
-        // Check if any result is missing an overview in Slovak.
-        val needsFallback = skResults.any { result ->
+        val fallbackLanguage = fallbackLanguage(language)
+        val needsFallback = fallbackLanguage != null && localizedResults.any { result ->
             when (result) {
                 is TmdbMultiSearchResultDto.MovieResult -> result.overview.isBlank()
                 is TmdbMultiSearchResultDto.TvResult -> result.overview.isBlank()
@@ -75,9 +80,9 @@ class MovieRepository(
             }
         }
 
-        val enOverviews: Map<Int, String> = if (needsFallback) {
+        val fallbackOverviews: Map<Int, String> = if (needsFallback) {
             runCatching {
-                tmdbApi.searchMulti(query = query, language = FALLBACK_LANGUAGE)
+                tmdbApi.searchMulti(query = query, language = checkNotNull(fallbackLanguage))
                     .results
                     .mapNotNull { r ->
                         when (r) {
@@ -92,14 +97,14 @@ class MovieRepository(
             emptyMap()
         }
 
-        skResults.mapNotNull { result ->
+        localizedResults.mapNotNull { result ->
             when (result) {
                 is TmdbMultiSearchResultDto.MovieResult -> {
-                    val overview = result.overview.ifBlank { enOverviews[result.id] ?: "" }
+                    val overview = result.overview.ifBlank { fallbackOverviews[result.id] ?: "" }
                     result.copy(overview = overview).toDomain(allGenres)
                 }
                 is TmdbMultiSearchResultDto.TvResult -> {
-                    val overview = result.overview.ifBlank { enOverviews[result.id] ?: "" }
+                    val overview = result.overview.ifBlank { fallbackOverviews[result.id] ?: "" }
                     result.copy(overview = overview).toDomain(allGenres)
                 }
                 is TmdbMultiSearchResultDto.Unknown -> null
@@ -115,11 +120,13 @@ class MovieRepository(
      * If the network call fails entirely, falls back to the Room-cached copy.
      */
     suspend fun getMovieDetail(tmdbId: Int): Result<Movie> {
+        val language = currentTmdbLanguage()
         val remoteResult = runCatching {
-            val detail = tmdbApi.getMovieDetail(tmdbId)
-            if (detail.overview.isBlank()) {
-                val enDetail = runCatching { tmdbApi.getMovieDetail(tmdbId, language = FALLBACK_LANGUAGE) }
-                detail.copy(overview = enDetail.getOrNull()?.overview ?: "").toDomain()
+            val detail = tmdbApi.getMovieDetail(tmdbId, language = language)
+            val fallbackLanguage = fallbackLanguage(language)
+            if (detail.overview.isBlank() && fallbackLanguage != null) {
+                val fallbackDetail = runCatching { tmdbApi.getMovieDetail(tmdbId, language = fallbackLanguage) }
+                detail.copy(overview = fallbackDetail.getOrNull()?.overview ?: "").toDomain()
             } else {
                 detail.toDomain()
             }
@@ -139,11 +146,13 @@ class MovieRepository(
      * If the network call fails entirely, falls back to the Room-cached copy.
      */
     suspend fun getTvDetail(tmdbId: Int): Result<TvShow> {
+        val language = currentTmdbLanguage()
         val remoteResult = runCatching {
-            val detail = tmdbApi.getTvDetail(tmdbId)
-            if (detail.overview.isBlank()) {
-                val enDetail = runCatching { tmdbApi.getTvDetail(tmdbId, language = FALLBACK_LANGUAGE) }
-                detail.copy(overview = enDetail.getOrNull()?.overview ?: "").toDomain()
+            val detail = tmdbApi.getTvDetail(tmdbId, language = language)
+            val fallbackLanguage = fallbackLanguage(language)
+            if (detail.overview.isBlank() && fallbackLanguage != null) {
+                val fallbackDetail = runCatching { tmdbApi.getTvDetail(tmdbId, language = fallbackLanguage) }
+                detail.copy(overview = fallbackDetail.getOrNull()?.overview ?: "").toDomain()
             } else {
                 detail.toDomain()
             }
@@ -161,10 +170,12 @@ class MovieRepository(
      * No offline fallback — episode data is not stored locally.
      */
     suspend fun getTvSeason(tvId: Int, seasonNumber: Int): Result<Season> = runCatching {
-        val detail = tmdbApi.getTvSeason(tvId, seasonNumber)
-        if (detail.episodes.any { it.overview.isBlank() }) {
+        val language = currentTmdbLanguage()
+        val detail = tmdbApi.getTvSeason(tvId, seasonNumber, language = language)
+        val fallbackLanguage = fallbackLanguage(language)
+        if (detail.episodes.any { it.overview.isBlank() } && fallbackLanguage != null) {
             val enDetail = runCatching {
-                tmdbApi.getTvSeason(tvId, seasonNumber, language = FALLBACK_LANGUAGE)
+                tmdbApi.getTvSeason(tvId, seasonNumber, language = fallbackLanguage)
             }.getOrNull()
 
             detail.copy(
@@ -179,7 +190,7 @@ class MovieRepository(
 
     /** Loads the cast list for a movie from TMDB. */
     suspend fun getMovieCast(tmdbId: Int): Result<List<CastMember>> = runCatching {
-        tmdbApi.getMovieCredits(tmdbId)
+        tmdbApi.getMovieCredits(tmdbId, language = currentTmdbLanguage())
             .cast
             .sortedBy { it.order }
             .map { it.toDomain() }
@@ -187,7 +198,7 @@ class MovieRepository(
 
     /** Loads the cast list for a TV show from TMDB. */
     suspend fun getTvCast(tmdbId: Int): Result<List<CastMember>> = runCatching {
-        tmdbApi.getTvCredits(tmdbId)
+        tmdbApi.getTvCredits(tmdbId, language = currentTmdbLanguage())
             .cast
             .sortedBy { it.order }
             .map { it.toDomain() }
@@ -424,6 +435,33 @@ class MovieRepository(
     }
 
     /**
+     * Refreshes already-saved movies and TV shows so the local list reflects
+     * the currently selected app language.
+     */
+    suspend fun refreshSavedMediaForCurrentLanguage() {
+        if (!LanguageManager.shouldRefreshLocalizedContent(applicationContext)) return
+
+        val savedItems = movieDao.observeAll().first()
+        savedItems.forEach { entity ->
+            val localizedMedia = when (entity.mediaType) {
+                "tv" -> getTvDetail(entity.tmdbId).getOrNull()
+                else -> getMovieDetail(entity.tmdbId).getOrNull()
+            } ?: return@forEach
+
+            movieDao.upsert(
+                localizedMedia.toEntity(
+                    watchStatus = entity.watchStatus,
+                    userRating = entity.userRating,
+                    note = entity.note,
+                    dateAdded = entity.dateAdded,
+                ),
+            )
+        }
+
+        LanguageManager.markLocalizedContentSynced(applicationContext)
+    }
+
+    /**
      * In-memory cache of season structures (seasonNumber to episodeCount pairs)
      * to avoid repeated TMDB calls when the "+" button is tapped rapidly.
      */
@@ -431,7 +469,9 @@ class MovieRepository(
 
     private suspend fun getTvSeasonStructure(tmdbId: Int): List<Pair<Int, Int>>? {
         tvStructureCache[tmdbId]?.let { return it }
-        val detail = runCatching { tmdbApi.getTvDetail(tmdbId) }.getOrNull() ?: return null
+        val detail = runCatching {
+            tmdbApi.getTvDetail(tmdbId, language = currentTmdbLanguage())
+        }.getOrNull() ?: return null
         val structure = detail.seasons
             .filter { it.seasonNumber > 0 }
             .sortedBy { it.seasonNumber }
@@ -496,22 +536,26 @@ class MovieRepository(
             .map { it.key to it.value }
 
     /** Lazily loads and caches movie genre lookup table. */
-    private suspend fun ensureMovieGenres(): Map<Int, String> {
-        cachedMovieGenres?.let { return it }
+    private suspend fun ensureMovieGenres(language: String): Map<Int, String> {
+        cachedMovieGenres[language]?.let { return it }
         return genreCacheMutex.withLock {
-            cachedMovieGenres ?: runCatching {
-                tmdbApi.getGenres().genres.associate { it.id to it.name }
-            }.getOrDefault(emptyMap()).also { cachedMovieGenres = it }
+            cachedMovieGenres[language] ?: runCatching {
+                tmdbApi.getGenres(language = language).genres.associate { it.id to it.name }
+            }.getOrDefault(emptyMap()).also { genres ->
+                cachedMovieGenres = cachedMovieGenres + (language to genres)
+            }
         }
     }
 
     /** Lazily loads and caches TV genre lookup table. */
-    private suspend fun ensureTvGenres(): Map<Int, String> {
-        cachedTvGenres?.let { return it }
+    private suspend fun ensureTvGenres(language: String): Map<Int, String> {
+        cachedTvGenres[language]?.let { return it }
         return genreCacheMutex.withLock {
-            cachedTvGenres ?: runCatching {
-                tmdbApi.getTvGenres().genres.associate { it.id to it.name }
-            }.getOrDefault(emptyMap()).also { cachedTvGenres = it }
+            cachedTvGenres[language] ?: runCatching {
+                tmdbApi.getTvGenres(language = language).genres.associate { it.id to it.name }
+            }.getOrDefault(emptyMap()).also { genres ->
+                cachedTvGenres = cachedTvGenres + (language to genres)
+            }
         }
     }
 
@@ -519,11 +563,17 @@ class MovieRepository(
      * Returns a merged genre map (movie + TV). Used by [searchMulti] where
      * results may contain both media types.
      */
-    private suspend fun ensureAllGenres(): Map<Int, String> {
-        val movie = ensureMovieGenres()
-        val tv = ensureTvGenres()
+    private suspend fun ensureAllGenres(language: String): Map<Int, String> {
+        val movie = ensureMovieGenres(language)
+        val tv = ensureTvGenres(language)
         return movie + tv
     }
+
+    private fun currentTmdbLanguage(): String =
+        LanguageManager.currentTmdbLanguage(applicationContext)
+
+    private fun fallbackLanguage(primaryLanguage: String): String? =
+        if (primaryLanguage == FALLBACK_LANGUAGE) null else FALLBACK_LANGUAGE
 
     /**
      * Fills blank episode overviews from the fallback-language response by

@@ -93,4 +93,6 @@
     <string name="poster_placeholder_description">Plagát nie je dostupný</string>
     <string name="search_add_to_list">Pridať do zoznamu</string>
     <string name="mylist_toggle_watched">Prepnúť stav pozreté</string>
+    <string name="language_slovak">Slovenčina</string>
+    <string name="language_english">English</string>
 </resources>

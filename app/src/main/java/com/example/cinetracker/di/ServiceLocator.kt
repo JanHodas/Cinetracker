@@ -25,7 +25,14 @@ class ServiceLocator(
     val movieDao: MovieDao by lazy { database.movieDao() }
     val watchedEpisodeDao: WatchedEpisodeDao by lazy { database.watchedEpisodeDao() }
     val tmdbApi: TmdbApi = NetworkModule.tmdbApi
-    val movieRepository: MovieRepository by lazy { MovieRepository(tmdbApi, movieDao, watchedEpisodeDao) }
+    val movieRepository: MovieRepository by lazy {
+        MovieRepository(
+            applicationContext = applicationContext,
+            tmdbApi = tmdbApi,
+            movieDao = movieDao,
+            watchedEpisodeDao = watchedEpisodeDao,
+        )
+    }
     val networkConnectivityObserver: NetworkConnectivityObserver by lazy {
         NetworkConnectivityObserver(applicationContext)
     }
