@@ -1,6 +1,7 @@
 package com.example.cinetracker.ui.screens.detail
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BookmarkRemove
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -50,10 +53,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
@@ -418,19 +428,63 @@ private fun MetadataRow(mediaItem: MediaItem) {
     }
 }
 
+/**
+ * Single row in the cast list — rounded-rectangle profile photo on the left,
+ * actor name and character on the right. Falls back to a generic
+ * person icon when TMDB has no photo for the cast member.
+ */
 @Composable
 private fun CastRow(castMember: CastMember) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = castMember.name,
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        if (castMember.character.isNotBlank()) {
+    val photoShape = RoundedCornerShape(8.dp)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        val profileUrl = TmdbImageUrl.build(castMember.profilePath, TmdbImageUrl.PROFILE_W185)
+
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(photoShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (profileUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalPlatformContext.current)
+                        .data(profileUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = castMember.name,
+                    contentScale = ContentScale.Crop,
+                    alignment = BiasAlignment(0f, -0.5f),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(photoShape),
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = stringResource(R.string.detail_cast_as, castMember.character),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = castMember.name,
+                style = MaterialTheme.typography.bodyLarge,
             )
+            if (castMember.character.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.detail_cast_as, castMember.character),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

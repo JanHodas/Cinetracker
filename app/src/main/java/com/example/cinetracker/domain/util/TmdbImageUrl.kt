@@ -18,6 +18,9 @@ object TmdbImageUrl {
     /** Wide backdrop used as the detail screen header background. */
     const val BACKDROP_W780 = "w780"
 
+    /** Profile photo used for cast members. */
+    const val PROFILE_W185 = "w185"
+
     /**
      * Builds the full image URL for the given TMDB relative path, or null if [relativePath] is null/blank.
      */
