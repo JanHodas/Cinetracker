@@ -193,17 +193,10 @@ private fun MovieList(
             val tmdbId = savedMovie.movie.tmdbId
             val watchedCount = watchedEpisodeCounts[tmdbId] ?: 0
             val totalEpisodes = (savedMovie.movie as? TvShow)?.numberOfEpisodes ?: 0
-            val episodeProgress = if (isTv && totalEpisodes > 0) {
-                "$watchedCount/$totalEpisodes ep"
-            } else if (isTv && watchedCount > 0) {
-                "$watchedCount ep"
-            } else {
-                null
-            }
-
             SwipeToDismissItem(
                 savedMovie = savedMovie,
-                episodeProgress = episodeProgress,
+                watchedEpisodes = if (isTv) watchedCount else null,
+                totalEpisodes = if (isTv && totalEpisodes > 0) totalEpisodes else null,
                 onDelete = { onDelete(savedMovie) },
                 onClick = { onItemClick(mediaType, tmdbId) },
                 onIncrementEpisode = if (isTv) {
@@ -220,7 +213,8 @@ private fun MovieList(
 @Composable
 private fun SwipeToDismissItem(
     savedMovie: SavedMovie,
-    episodeProgress: String?,
+    watchedEpisodes: Int?,
+    totalEpisodes: Int?,
     onDelete: () -> Unit,
     onClick: () -> Unit,
     onIncrementEpisode: (() -> Unit)?,
@@ -263,7 +257,8 @@ private fun SwipeToDismissItem(
         MovieListItem(
             movie = savedMovie.movie,
             onClick = onClick,
-            episodeProgress = episodeProgress,
+            watchedEpisodes = watchedEpisodes,
+            totalEpisodes = totalEpisodes,
             onIncrementEpisode = onIncrementEpisode,
             onDelete = onDelete,
         )

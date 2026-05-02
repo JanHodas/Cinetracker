@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.cinetracker.R
@@ -34,22 +37,21 @@ import com.example.cinetracker.domain.model.TvShow
 /**
  * Compact list row representing a single media item (movie or TV show).
  *
- * Layout: poster on the left (60×90 dp), then title / badge / year / overview
- * snippet on the right. TV shows display a small badge next to the year.
- *
- * When [episodeProgress] is provided (e.g. "5/24"), it is shown as a small
- * progress label. When [onIncrementEpisode] is non-null, a "+" button appears
- * at the trailing edge for MAL-style quick episode tracking.
+ * TV shows can optionally display a MAL-style episode progress bar instead of
+ * the overview snippet when [watchedEpisodes] and [totalEpisodes] are provided.
  */
 @Composable
 fun MovieListItem(
     movie: MediaItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    episodeProgress: String? = null,
+    watchedEpisodes: Int? = null,
+    totalEpisodes: Int? = null,
     onIncrementEpisode: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
+    val showEpisodeProgress = movie is TvShow && totalEpisodes != null && totalEpisodes > 0
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -72,7 +74,7 @@ fun MovieListItem(
             )
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
                     text = movie.title,
@@ -95,11 +97,14 @@ fun MovieListItem(
                     if (movie is TvShow) {
                         MediaTypeBadge(label = stringResource(R.string.badge_tv))
                     }
-                    if (episodeProgress != null) {
-                        EpisodeProgressBadge(progress = episodeProgress)
-                    }
                 }
-                if (movie.overview.isNotBlank()) {
+
+                if (showEpisodeProgress) {
+                    EpisodeProgressSection(
+                        watchedEpisodes = watchedEpisodes ?: 0,
+                        totalEpisodes = totalEpisodes,
+                    )
+                } else if (movie.overview.isNotBlank()) {
                     Text(
                         text = movie.overview,
                         style = MaterialTheme.typography.bodySmall,
@@ -108,6 +113,7 @@ fun MovieListItem(
                     )
                 }
             }
+
             if (onIncrementEpisode != null || onDelete != null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -146,6 +152,40 @@ fun MovieListItem(
     }
 }
 
+@Composable
+private fun EpisodeProgressSection(
+    watchedEpisodes: Int,
+    totalEpisodes: Int,
+) {
+    val progress = if (totalEpisodes > 0) {
+        watchedEpisodes.toFloat() / totalEpisodes.toFloat()
+    } else {
+        0f
+    }.coerceIn(0f, 1f)
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(999.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
+        Text(
+            text = stringResource(
+                R.string.mylist_episode_progress,
+                watchedEpisodes,
+                totalEpisodes,
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
 /** Small rounded label used to distinguish TV shows from movies in mixed lists. */
 @Composable
 private fun MediaTypeBadge(label: String) {
@@ -159,23 +199,6 @@ private fun MediaTypeBadge(label: String) {
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-    }
-}
-
-/** Small badge showing episode watch progress, e.g. "5/24 ep". */
-@Composable
-private fun EpisodeProgressBadge(progress: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-    ) {
-        Text(
-            text = progress,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }

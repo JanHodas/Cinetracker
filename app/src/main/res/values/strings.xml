@@ -65,6 +65,7 @@
     <string name="mylist_deleted_snackbar">Položka odstránená</string>
     <string name="mylist_undo">Späť</string>
     <string name="mylist_increment_episode">Pridať epizódu</string>
+    <string name="mylist_episode_progress">%1$d / %2$d ep</string>
 
     <!-- Stats screen -->
     <string name="stats_title">Štatistiky</string>
