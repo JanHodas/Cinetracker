@@ -29,10 +29,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,6 +50,7 @@ import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.ui.components.MovieListItem
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +63,7 @@ fun MyListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val deletedMessage = stringResource(R.string.mylist_deleted_snackbar)
+    val undoLabel = stringResource(R.string.mylist_undo)
 
     Scaffold(
         modifier = modifier,
@@ -96,14 +101,20 @@ fun MyListScreen(
                 MovieList(
                     items = uiState.items,
                     watchedEpisodeCounts = uiState.watchedEpisodeCounts,
+                    itemRenderVersions = uiState.itemRenderVersions,
                     onItemClick = onItemClick,
                     onDelete = { saved ->
-                        viewModel.deleteMovie(saved)
                         scope.launch {
-                            snackbarHostState.showSnackbar(
+                            viewModel.deleteMovie(saved)
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            val result = snackbarHostState.showSnackbar(
                                 message = deletedMessage,
-                                duration = SnackbarDuration.Short,
+                                actionLabel = undoLabel,
+                                duration = SnackbarDuration.Long,
                             )
+                            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                                viewModel.restoreLastDeleted()
+                            }
                         }
                     },
                     onIncrementEpisode = viewModel::incrementEpisode,
@@ -173,6 +184,7 @@ private fun MediaTypeFilterRow(
 private fun MovieList(
     items: List<SavedMovie>,
     watchedEpisodeCounts: Map<Int, Int>,
+    itemRenderVersions: Map<Int, Int>,
     onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
     onDelete: (SavedMovie) -> Unit,
     onIncrementEpisode: (tmdbId: Int) -> Unit,
@@ -183,7 +195,9 @@ private fun MovieList(
     ) {
         items(
             items = items,
-            key = { it.movie.tmdbId },
+            key = { savedMovie ->
+                "${savedMovie.movie.tmdbId}-${itemRenderVersions[savedMovie.movie.tmdbId] ?: 0}"
+            },
         ) { savedMovie ->
             val mediaType = when (savedMovie.movie) {
                 is Movie -> MyListViewModel.MEDIA_TYPE_MOVIE
@@ -219,19 +233,51 @@ private fun SwipeToDismissItem(
     onClick: () -> Unit,
     onIncrementEpisode: (() -> Unit)?,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState()
+    var deleteTriggered by remember(savedMovie.movie.tmdbId) { mutableStateOf(false) }
+    var itemWidthPx by remember(savedMovie.movie.tmdbId) { mutableFloatStateOf(1f) }
+    val scope = rememberCoroutineScope()
+    var dismissStateRef: androidx.compose.material3.SwipeToDismissBoxState? = null
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { targetValue ->
+            val draggedFraction = (
+                abs(
+                    runCatching { dismissStateRef?.requireOffset() ?: 0f }
+                        .getOrDefault(0f),
+                ) / itemWidthPx
+            ).coerceIn(0f, 1f)
 
-    LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-            onDelete()
-        }
-    }
+            if (
+                targetValue == SwipeToDismissBoxValue.EndToStart &&
+                !deleteTriggered &&
+                draggedFraction >= 0.80f
+            ) {
+                deleteTriggered = true
+                onDelete()
+                scope.launch {
+                    dismissStateRef?.reset()
+                    deleteTriggered = false
+                }
+            }
+            false
+        },
+        positionalThreshold = { totalDistance -> totalDistance * 0.85f },
+    )
+    dismissStateRef = dismissState
 
     SwipeToDismissBox(
         state = dismissState,
+        modifier = Modifier.onSizeChanged { size ->
+            itemWidthPx = size.width.toFloat().coerceAtLeast(1f)
+        },
         backgroundContent = {
+            val progress = (
+                abs(
+                    runCatching { dismissState.requireOffset() }
+                        .getOrDefault(0f),
+                ) / itemWidthPx
+            ).coerceIn(0f, 1f)
             val color by animateColorAsState(
-                targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                targetValue = if (progress > 0f) {
                     MaterialTheme.colorScheme.errorContainer
                 } else {
                     MaterialTheme.colorScheme.surface
@@ -241,7 +287,7 @@ private fun SwipeToDismissItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(color)
+                    .background(color.copy(alpha = 0.35f + (progress * 0.65f)))
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {

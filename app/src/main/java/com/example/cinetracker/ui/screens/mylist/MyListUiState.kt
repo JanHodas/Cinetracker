@@ -13,4 +13,6 @@ data class MyListUiState(
     val items: List<SavedMovie> = emptyList(),
     /** Watched episode counts per TV show (tmdbId -> count). */
     val watchedEpisodeCounts: Map<Int, Int> = emptyMap(),
+    /** Forces Compose to recreate a row after undo so stale swipe state is dropped. */
+    val itemRenderVersions: Map<Int, Int> = emptyMap(),
 )

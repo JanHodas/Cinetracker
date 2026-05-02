@@ -295,6 +295,34 @@ class MovieRepository(
         watchedEpisodeDao.deleteByTmdbId(tmdbId)
     }
 
+    /**
+     * Deletes a saved item and returns a snapshot that can be used for undo.
+     * For TV shows this also preserves watched-episode progress.
+     */
+    suspend fun deleteSavedItem(savedMovie: SavedMovie): DeletedSavedItem {
+        val watchedEpisodes = watchedEpisodeDao.getByTmdbId(savedMovie.movie.tmdbId)
+        removeMovie(savedMovie.movie.tmdbId)
+        return DeletedSavedItem(
+            savedMovie = savedMovie,
+            watchedEpisodes = watchedEpisodes,
+        )
+    }
+
+    /**
+     * Restores a previously deleted item, including watched-episode progress.
+     */
+    suspend fun restoreDeletedItem(deletedItem: DeletedSavedItem) {
+        val savedMovie = deletedItem.savedMovie
+        saveMedia(
+            mediaItem = savedMovie.movie,
+            watchStatus = savedMovie.watchStatus,
+            userRating = savedMovie.userRating,
+            note = savedMovie.note,
+            dateAdded = savedMovie.dateAdded,
+        )
+        deletedItem.watchedEpisodes.forEach { watchedEpisodeDao.upsert(it) }
+    }
+
     // ── Episode tracking ───────────────────────────────────────────────
 
     /** Observe all watched episodes for a TV show (for detail screen checkboxes). */
@@ -482,3 +510,8 @@ class MovieRepository(
         private const val FALLBACK_LANGUAGE = "en-US"
     }
 }
+
+data class DeletedSavedItem(
+    val savedMovie: SavedMovie,
+    val watchedEpisodes: List<WatchedEpisodeEntity>,
+)

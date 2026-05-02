@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cinetracker.CineTrackApplication
+import com.example.cinetracker.data.repository.DeletedSavedItem
 import com.example.cinetracker.data.repository.MovieRepository
 import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.WatchStatus
@@ -33,6 +34,9 @@ class MyListViewModel(
 
     private val activeStatusFilter = MutableStateFlow<WatchStatus?>(null)
     private val activeMediaTypeFilter = MutableStateFlow<String?>(null)
+    private val itemRenderVersions = MutableStateFlow<Map<Int, Int>>(emptyMap())
+
+    private var lastDeletedItem: DeletedSavedItem? = null
 
     private val filteredItems = combine(
         activeStatusFilter,
@@ -58,12 +62,14 @@ class MyListViewModel(
         activeMediaTypeFilter,
         filteredItems,
         watchedCounts,
-    ) { statusFilter, mediaTypeFilter, items, counts ->
+        itemRenderVersions,
+    ) { statusFilter, mediaTypeFilter, items, counts, renderVersions ->
         MyListUiState(
             activeStatusFilter = statusFilter,
             activeMediaTypeFilter = mediaTypeFilter,
             items = items,
             watchedEpisodeCounts = counts,
+            itemRenderVersions = renderVersions,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -79,10 +85,19 @@ class MyListViewModel(
         activeMediaTypeFilter.value = mediaType
     }
 
-    fun deleteMovie(savedMovie: SavedMovie) {
-        viewModelScope.launch {
-            movieRepository.removeMovie(savedMovie.movie.tmdbId)
+    suspend fun deleteMovie(savedMovie: SavedMovie) {
+        lastDeletedItem = movieRepository.deleteSavedItem(savedMovie)
+    }
+
+    suspend fun restoreLastDeleted(): Boolean {
+        val deletedItem = lastDeletedItem ?: return false
+        movieRepository.restoreDeletedItem(deletedItem)
+        val tmdbId = deletedItem.savedMovie.movie.tmdbId
+        itemRenderVersions.value = itemRenderVersions.value.toMutableMap().apply {
+            this[tmdbId] = (this[tmdbId] ?: 0) + 1
         }
+        lastDeletedItem = null
+        return true
     }
 
     /** Mark the next unwatched episode for a TV show (MAL-style "+" button). */
