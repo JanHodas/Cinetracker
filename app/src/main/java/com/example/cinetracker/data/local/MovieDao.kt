@@ -82,6 +82,34 @@ interface MovieDao {
     /** All genres filtered by [mediaType]. */
     @Query("SELECT genres FROM movies WHERE mediaType = :mediaType")
     fun observeAllGenresByMediaType(mediaType: String): Flow<List<String>>
+
+    // ── Status-filtered stats ───────────────────────────────────────
+
+    /** Total number of items with a given [watchStatus]. */
+    @Query("SELECT COUNT(*) FROM movies WHERE watchStatus = :watchStatus")
+    fun observeCountByStatus(watchStatus: String): Flow<Int>
+
+    /** Average user rating filtered by [watchStatus]. */
+    @Query("SELECT AVG(userRating) FROM movies WHERE userRating IS NOT NULL AND watchStatus = :watchStatus")
+    fun observeAverageRatingByStatus(watchStatus: String): Flow<Float?>
+
+    /** All genres filtered by [watchStatus]. */
+    @Query("SELECT genres FROM movies WHERE watchStatus = :watchStatus")
+    fun observeAllGenresByStatus(watchStatus: String): Flow<List<String>>
+
+    // ── Status + media-type filtered stats ──────────────────────────
+
+    /** Total number of items with a given [watchStatus] and [mediaType]. */
+    @Query("SELECT COUNT(*) FROM movies WHERE watchStatus = :watchStatus AND mediaType = :mediaType")
+    fun observeCountByStatusAndMediaType(watchStatus: String, mediaType: String): Flow<Int>
+
+    /** Average user rating filtered by [watchStatus] and [mediaType]. */
+    @Query("SELECT AVG(userRating) FROM movies WHERE userRating IS NOT NULL AND watchStatus = :watchStatus AND mediaType = :mediaType")
+    fun observeAverageRatingByStatusAndMediaType(watchStatus: String, mediaType: String): Flow<Float?>
+
+    /** All genres filtered by [watchStatus] and [mediaType]. */
+    @Query("SELECT genres FROM movies WHERE watchStatus = :watchStatus AND mediaType = :mediaType")
+    fun observeAllGenresByStatusAndMediaType(watchStatus: String, mediaType: String): Flow<List<String>>
 }
 
 /** Projection class for the status-count aggregate query. */

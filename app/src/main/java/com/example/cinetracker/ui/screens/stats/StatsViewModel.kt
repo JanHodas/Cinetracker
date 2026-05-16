@@ -8,55 +8,81 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.cinetracker.CineTrackApplication
 import com.example.cinetracker.data.repository.MovieRepository
+import com.example.cinetracker.domain.model.WatchStatus
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
-/**
- * ViewModel for the Stats screen. Combines reactive Room queries for movies
- * and TV shows into separate sections displayed on one screen.
- */
+@OptIn(ExperimentalCoroutinesApi::class)
 class StatsViewModel(
-    movieRepository: MovieRepository,
+    private val movieRepository: MovieRepository,
 ) : ViewModel() {
 
-    private val movieStats = combine(
-        movieRepository.observeTotalCountByMediaType(MEDIA_TYPE_MOVIE),
-        movieRepository.observeStatusCountsByMediaType(MEDIA_TYPE_MOVIE),
-        movieRepository.observeAverageRatingByMediaType(MEDIA_TYPE_MOVIE),
-        movieRepository.observeTopGenresByMediaType(MEDIA_TYPE_MOVIE),
-    ) { totalCount, statusCounts, averageRating, topGenres ->
-        MediaStatsSection(
-            totalCount = totalCount,
-            statusCounts = statusCounts,
-            averageRating = averageRating,
-            topGenres = topGenres,
-        )
-    }
+    private val activeStatusFilter = MutableStateFlow<WatchStatus?>(null)
+    private val activeMediaTypeFilter = MutableStateFlow<String?>(null)
 
-    private val tvStats = combine(
-        movieRepository.observeTotalCountByMediaType(MEDIA_TYPE_TV),
-        movieRepository.observeStatusCountsByMediaType(MEDIA_TYPE_TV),
-        movieRepository.observeAverageRatingByMediaType(MEDIA_TYPE_TV),
-        movieRepository.observeTopGenresByMediaType(MEDIA_TYPE_TV),
-    ) { totalCount, statusCounts, averageRating, topGenres ->
-        MediaStatsSection(
-            totalCount = totalCount,
-            statusCounts = statusCounts,
-            averageRating = averageRating,
-            topGenres = topGenres,
-        )
+    private val filteredStats = combine(
+        activeStatusFilter,
+        activeMediaTypeFilter,
+    ) { status, mediaType ->
+        status to mediaType
+    }.flatMapLatest { (status, mediaType) ->
+        val totalCountFlow = when {
+            status == null && mediaType == null -> movieRepository.observeTotalCount()
+            status != null && mediaType == null -> movieRepository.observeTotalCountByStatus(status)
+            status == null && mediaType != null -> movieRepository.observeTotalCountByMediaType(mediaType)
+            else -> movieRepository.observeTotalCountByStatusAndMediaType(
+                status = checkNotNull(status), mediaType = checkNotNull(mediaType),
+            )
+        }
+        val averageRatingFlow = when {
+            status == null && mediaType == null -> movieRepository.observeAverageRating()
+            status != null && mediaType == null -> movieRepository.observeAverageRatingByStatus(status)
+            status == null && mediaType != null -> movieRepository.observeAverageRatingByMediaType(mediaType)
+            else -> movieRepository.observeAverageRatingByStatusAndMediaType(
+                status = checkNotNull(status), mediaType = checkNotNull(mediaType),
+            )
+        }
+        val topGenresFlow = when {
+            status == null && mediaType == null -> movieRepository.observeTopGenres()
+            status != null && mediaType == null -> movieRepository.observeTopGenresByStatus(status)
+            status == null && mediaType != null -> movieRepository.observeTopGenresByMediaType(mediaType)
+            else -> movieRepository.observeTopGenresByStatusAndMediaType(
+                status = checkNotNull(status), mediaType = checkNotNull(mediaType),
+            )
+        }
+        val statusCountsFlow = when {
+            mediaType == null -> movieRepository.observeStatusCounts()
+            else -> movieRepository.observeStatusCountsByMediaType(mediaType)
+        }
+
+        combine(totalCountFlow, averageRatingFlow, topGenresFlow, statusCountsFlow) {
+                totalCount, averageRating, topGenres, statusCounts ->
+            StatsData(
+                totalCount = totalCount,
+                averageRating = averageRating,
+                topGenres = topGenres,
+                statusCounts = statusCounts,
+            )
+        }
     }
 
     val uiState: StateFlow<StatsUiState> = combine(
-        movieStats,
-        tvStats,
-    ) { movieSection, tvSection ->
+        activeStatusFilter,
+        activeMediaTypeFilter,
+        filteredStats,
+    ) { statusFilter, mediaTypeFilter, data ->
         StatsUiState(
-            totalCount = movieSection.totalCount + tvSection.totalCount,
-            movieStats = movieSection,
-            tvStats = tvSection,
+            activeStatusFilter = statusFilter,
+            activeMediaTypeFilter = mediaTypeFilter,
+            totalCount = data.totalCount,
+            statusCounts = data.statusCounts,
+            averageRating = data.averageRating,
+            topGenres = data.topGenres,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -64,9 +90,17 @@ class StatsViewModel(
         initialValue = StatsUiState(),
     )
 
+    fun setStatusFilter(status: WatchStatus?) {
+        activeStatusFilter.value = status
+    }
+
+    fun setMediaTypeFilter(mediaType: String?) {
+        activeMediaTypeFilter.value = mediaType
+    }
+
     companion object {
-        private const val MEDIA_TYPE_MOVIE = "movie"
-        private const val MEDIA_TYPE_TV = "tv"
+        const val MEDIA_TYPE_MOVIE = "movie"
+        const val MEDIA_TYPE_TV = "tv"
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -78,3 +112,10 @@ class StatsViewModel(
         }
     }
 }
+
+private data class StatsData(
+    val totalCount: Int,
+    val averageRating: Float?,
+    val topGenres: List<Pair<String, Int>>,
+    val statusCounts: Map<WatchStatus, Int>,
+)

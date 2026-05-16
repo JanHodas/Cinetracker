@@ -16,6 +16,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -90,12 +91,79 @@ fun StatsScreen(
             )
         },
     ) { innerPadding ->
-        if (uiState.totalCount == 0) {
-            EmptyStats(modifier = Modifier.padding(innerPadding))
-        } else {
-            StatsContent(
-                state = uiState,
-                modifier = Modifier.padding(innerPadding),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
+            StatusFilterRow(
+                activeFilter = uiState.activeStatusFilter,
+                onFilterSelected = viewModel::setStatusFilter,
+            )
+            MediaTypeFilterRow(
+                activeFilter = uiState.activeMediaTypeFilter,
+                onFilterSelected = viewModel::setMediaTypeFilter,
+            )
+
+            if (uiState.totalCount == 0 && uiState.activeStatusFilter == null && uiState.activeMediaTypeFilter == null) {
+                EmptyStats()
+            } else {
+                StatsContent(state = uiState)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusFilterRow(
+    activeFilter: WatchStatus?,
+    onFilterSelected: (WatchStatus?) -> Unit,
+) {
+    val filters = listOf(
+        null to stringResource(R.string.mylist_filter_all),
+        WatchStatus.WANT_TO_WATCH to stringResource(R.string.mylist_filter_want),
+        WatchStatus.WATCHING to stringResource(R.string.mylist_filter_watching),
+        WatchStatus.WATCHED to stringResource(R.string.mylist_filter_watched),
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        filters.forEach { (status, label) ->
+            FilterChip(
+                selected = activeFilter == status,
+                onClick = { onFilterSelected(status) },
+                label = { Text(label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MediaTypeFilterRow(
+    activeFilter: String?,
+    onFilterSelected: (String?) -> Unit,
+) {
+    val filters = listOf(
+        null to stringResource(R.string.mylist_media_all),
+        StatsViewModel.MEDIA_TYPE_MOVIE to stringResource(R.string.mylist_media_movies),
+        StatsViewModel.MEDIA_TYPE_TV to stringResource(R.string.mylist_media_tv),
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        filters.forEach { (mediaType, label) ->
+            FilterChip(
+                selected = activeFilter == mediaType,
+                onClick = { onFilterSelected(mediaType) },
+                label = { Text(label) },
             )
         }
     }
@@ -113,103 +181,82 @@ private fun StatsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        MediaSection(
-            title = stringResource(R.string.stats_section_movies),
-            stats = state.movieStats,
-        )
-        MediaSection(
-            title = stringResource(R.string.stats_section_tv),
-            stats = state.tvStats,
-        )
-    }
-}
-
-@Composable
-private fun MediaSection(
-    title: String,
-    stats: MediaStatsSection,
-) {
-    StatsCard {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        if (stats.totalCount == 0) {
+        if (state.totalCount == 0) {
             Text(
-                text = stringResource(R.string.stats_section_empty),
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.mylist_empty_filtered),
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
             )
-            return@StatsCard
+            return
         }
 
-        StatRow(
-            label = stringResource(R.string.stats_total_items),
-            value = stats.totalCount.toString(),
-            highlight = true,
-        )
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        StatRow(
-            label = stringResource(R.string.stats_want_to_watch),
-            value = (stats.statusCounts[WatchStatus.WANT_TO_WATCH] ?: 0).toString(),
-        )
-        StatRow(
-            label = stringResource(R.string.stats_watching),
-            value = (stats.statusCounts[WatchStatus.WATCHING] ?: 0).toString(),
-        )
-        StatRow(
-            label = stringResource(R.string.stats_watched),
-            value = (stats.statusCounts[WatchStatus.WATCHED] ?: 0).toString(),
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = stringResource(R.string.stats_average_rating),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        if (stats.averageRating != null) {
-            Text(
-                text = stringResource(R.string.stats_average_rating_value, stats.averageRating),
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
+        StatsCard {
+            StatRow(
+                label = stringResource(R.string.stats_total_items),
+                value = state.totalCount.toString(),
+                highlight = true,
             )
-        } else {
-            Text(
-                text = stringResource(R.string.stats_no_ratings),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = stringResource(R.string.stats_top_genres),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        if (stats.topGenres.isEmpty()) {
-            Text(
-                text = stringResource(R.string.stats_no_genres),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            stats.topGenres.take(5).forEach { (genre, count) ->
+            if (state.activeStatusFilter == null) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 StatRow(
-                    label = genre,
-                    value = stringResource(R.string.stats_genre_count, count),
+                    label = stringResource(R.string.stats_want_to_watch),
+                    value = (state.statusCounts[WatchStatus.WANT_TO_WATCH] ?: 0).toString(),
                 )
+                StatRow(
+                    label = stringResource(R.string.stats_watching),
+                    value = (state.statusCounts[WatchStatus.WATCHING] ?: 0).toString(),
+                )
+                StatRow(
+                    label = stringResource(R.string.stats_watched),
+                    value = (state.statusCounts[WatchStatus.WATCHED] ?: 0).toString(),
+                )
+            }
+        }
+
+        StatsCard {
+            Text(
+                text = stringResource(R.string.stats_average_rating),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (state.averageRating != null) {
+                Text(
+                    text = stringResource(R.string.stats_average_rating_value, state.averageRating),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.stats_no_ratings),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        StatsCard {
+            Text(
+                text = stringResource(R.string.stats_top_genres),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (state.topGenres.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.stats_no_genres),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                state.topGenres.take(5).forEach { (genre, count) ->
+                    StatRow(
+                        label = genre,
+                        value = stringResource(R.string.stats_genre_count, count),
+                    )
+                }
             }
         }
     }

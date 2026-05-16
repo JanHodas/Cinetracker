@@ -518,6 +518,34 @@ class MovieRepository(
     fun observeTopGenresByMediaType(mediaType: String): Flow<List<Pair<String, Int>>> =
         movieDao.observeAllGenresByMediaType(mediaType).map { it.toGenreRanking() }
 
+    // ── Stats (per status) ──────────────────────────────────────────
+
+    /** Observe total count for a specific [status]. */
+    fun observeTotalCountByStatus(status: WatchStatus): Flow<Int> =
+        movieDao.observeCountByStatus(status.name)
+
+    /** Observe average user rating for a specific [status]. */
+    fun observeAverageRatingByStatus(status: WatchStatus): Flow<Float?> =
+        movieDao.observeAverageRatingByStatus(status.name)
+
+    /** Observe genre frequency for a specific [status], sorted descending. */
+    fun observeTopGenresByStatus(status: WatchStatus): Flow<List<Pair<String, Int>>> =
+        movieDao.observeAllGenresByStatus(status.name).map { it.toGenreRanking() }
+
+    // ── Stats (per status + media type) ─────────────────────────────
+
+    /** Observe total count for a specific [status] and [mediaType]. */
+    fun observeTotalCountByStatusAndMediaType(status: WatchStatus, mediaType: String): Flow<Int> =
+        movieDao.observeCountByStatusAndMediaType(status.name, mediaType)
+
+    /** Observe average user rating for a specific [status] and [mediaType]. */
+    fun observeAverageRatingByStatusAndMediaType(status: WatchStatus, mediaType: String): Flow<Float?> =
+        movieDao.observeAverageRatingByStatusAndMediaType(status.name, mediaType)
+
+    /** Observe genre frequency for a specific [status] and [mediaType], sorted descending. */
+    fun observeTopGenresByStatusAndMediaType(status: WatchStatus, mediaType: String): Flow<List<Pair<String, Int>>> =
+        movieDao.observeAllGenresByStatusAndMediaType(status.name, mediaType).map { it.toGenreRanking() }
+
     // ── Internal ────────────────────────────────────────────────────
 
     /**
