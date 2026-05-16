@@ -297,8 +297,15 @@ class MovieRepository(
                 dateAdded = currentSaved.dateAdded,
             ),
         )
-        if (mediaItem is TvShow && status == WatchStatus.WATCHED) {
-            markAllEpisodesWatched(mediaItem)
+        if (mediaItem is TvShow) {
+            when (status) {
+                WatchStatus.WATCHED -> markAllEpisodesWatched(mediaItem)
+                WatchStatus.WANT_TO_WATCH -> {
+                    watchedEpisodeDao.deleteByTmdbId(tmdbId)
+                    seasonRatingDao.deleteByTmdbId(tmdbId)
+                }
+                WatchStatus.WATCHING -> Unit
+            }
         }
     }
 

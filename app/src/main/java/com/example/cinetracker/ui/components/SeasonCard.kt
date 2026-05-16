@@ -65,7 +65,7 @@ fun SeasonCard(
     }
 
     LaunchedEffect(season.userRating) {
-        season.userRating?.let { seasonRating = it }
+        seasonRating = season.userRating ?: 5f
     }
 
     Card(modifier = modifier.fillMaxWidth()) {
