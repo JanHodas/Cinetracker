@@ -39,6 +39,10 @@ interface MovieDao {
     @Query("DELETE FROM movies WHERE tmdbId = :tmdbId")
     suspend fun deleteByTmdbId(tmdbId: Int)
 
+    /** Remove all saved items. */
+    @Query("DELETE FROM movies")
+    suspend fun deleteAll()
+
     // ── Unfiltered stats (backward compatibility) ────────────────────
 
     /** Total number of saved items (for Stats screen). */

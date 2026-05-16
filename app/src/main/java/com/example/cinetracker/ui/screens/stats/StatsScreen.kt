@@ -1,5 +1,8 @@
 package com.example.cinetracker.ui.screens.stats
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,14 +23,18 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +49,7 @@ import com.example.cinetracker.R
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.ui.language.AppLanguage
 import com.example.cinetracker.ui.language.LanguageManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,13 +61,59 @@ fun StatsScreen(
     val context = LocalContext.current
     val currentLanguage = LanguageManager.currentLanguage(context)
     var languageMenuExpanded by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val importSuccessMsg = stringResource(R.string.stats_import_success, 0)
+    val importErrorMsg = stringResource(R.string.stats_import_error)
+
+    LaunchedEffect(Unit) {
+        viewModel.backupEvents.collect { event ->
+            when (event) {
+                is BackupEvent.ImportSuccess -> snackbarHostState.showSnackbar(
+                    context.getString(R.string.stats_import_success, event.count),
+                )
+                is BackupEvent.ImportError -> snackbarHostState.showSnackbar(importErrorMsg)
+            }
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        viewModel.exportData { json ->
+            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(json.toByteArray(Charsets.UTF_8))
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val json = context.contentResolver.openInputStream(uri)?.use { stream ->
+                stream.bufferedReader().readText()
+            } ?: return@launch
+            viewModel.importData(json)
+        }
+    }
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.stats_title)) },
                 actions = {
+                    TextButton(onClick = { exportLauncher.launch("cinetrack_export.json") }) {
+                        Text(stringResource(R.string.stats_export))
+                    }
+                    TextButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
+                        Text(stringResource(R.string.stats_import))
+                    }
                     Box {
                         TextButton(
                             onClick = { languageMenuExpanded = true },

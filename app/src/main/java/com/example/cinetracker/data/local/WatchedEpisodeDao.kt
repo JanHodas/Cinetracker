@@ -42,6 +42,10 @@ interface WatchedEpisodeDao {
     @Query("DELETE FROM watched_episodes WHERE tmdbId = :tmdbId")
     suspend fun deleteByTmdbId(tmdbId: Int)
 
+    /** Remove all watched episodes. */
+    @Query("DELETE FROM watched_episodes")
+    suspend fun deleteAll()
+
     /** Check if any watched episodes are missing runtime data. */
     @Query("SELECT EXISTS(SELECT 1 FROM watched_episodes WHERE runtime IS NULL LIMIT 1)")
     suspend fun hasEpisodesWithoutRuntime(): Boolean

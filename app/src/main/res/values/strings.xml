@@ -84,6 +84,10 @@
     <string name="stats_section_empty">V tejto sekcii zatiaľ nie sú žiadne položky.</string>
     <string name="stats_total_runtime">Celkový čas sledovania</string>
     <string name="stats_runtime_hours">%1$d h %2$d min</string>
+    <string name="stats_export">Exportovať</string>
+    <string name="stats_import">Importovať</string>
+    <string name="stats_import_success">Importovaných %1$d položiek</string>
+    <string name="stats_import_error">Import zlyhal — neplatný formát súboru</string>
     <string name="stats_empty">Zatiaľ nemáš žiadne filmy ani seriály.\nPridaj ich cez vyhľadávanie.</string>
 
     <!-- Media type badges -->

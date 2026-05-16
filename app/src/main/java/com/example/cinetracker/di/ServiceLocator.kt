@@ -7,6 +7,7 @@ import com.example.cinetracker.data.local.WatchedEpisodeDao
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.remote.NetworkModule
 import com.example.cinetracker.data.remote.TmdbApi
+import com.example.cinetracker.data.export.BackupRepository
 import com.example.cinetracker.data.repository.MovieRepository
 
 /**
@@ -35,5 +36,8 @@ class ServiceLocator(
     }
     val networkConnectivityObserver: NetworkConnectivityObserver by lazy {
         NetworkConnectivityObserver(applicationContext)
+    }
+    val backupRepository: BackupRepository by lazy {
+        BackupRepository(movieDao = movieDao, watchedEpisodeDao = watchedEpisodeDao)
     }
 }
