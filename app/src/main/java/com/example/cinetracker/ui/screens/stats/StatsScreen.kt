@@ -217,6 +217,16 @@ private fun StatsContent(
         }
 
         StatsCard {
+            val hours = state.totalRuntimeMinutes / 60
+            val minutes = state.totalRuntimeMinutes % 60
+            StatRow(
+                label = stringResource(R.string.stats_total_runtime),
+                value = stringResource(R.string.stats_runtime_hours, hours, minutes),
+                highlight = true,
+            )
+        }
+
+        StatsCard {
             Text(
                 text = stringResource(R.string.stats_average_rating),
                 style = MaterialTheme.typography.titleMedium,

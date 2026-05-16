@@ -34,4 +34,6 @@ data class MovieEntity(
     val numberOfSeasons: Int? = null,
     /** TV-only: total number of episodes across all seasons. `null` for movies. */
     val numberOfEpisodes: Int? = null,
+    /** Runtime in minutes. For movies: film length. For TV: total estimated (episodes × avg episode length). */
+    val runtime: Int? = null,
 )

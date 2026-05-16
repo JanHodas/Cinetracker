@@ -46,6 +46,7 @@ fun TmdbMovieDetailDto.toDomain(): Movie = Movie(
     releaseDate = releaseDate?.takeIf { it.isNotBlank() },
     genres = genres.map { it.name },
     tmdbRating = voteAverage.takeIf { it > 0f },
+    runtime = runtime,
 )
 
 // ── Entity ↔ Domain ─────────────────────────────────────────────────
@@ -67,6 +68,7 @@ fun MovieEntity.toDomain(): SavedMovie = SavedMovie(
             tmdbRating = tmdbRating,
             numberOfSeasons = numberOfSeasons ?: 0,
             numberOfEpisodes = numberOfEpisodes ?: 0,
+            episodeRunTime = runtime,
         )
         else -> Movie(
             tmdbId = tmdbId,
@@ -77,6 +79,7 @@ fun MovieEntity.toDomain(): SavedMovie = SavedMovie(
             releaseDate = releaseDate,
             genres = genres,
             tmdbRating = tmdbRating,
+            runtime = runtime,
         )
     },
     watchStatus = watchStatus,
@@ -114,6 +117,10 @@ fun MediaItem.toEntity(
     },
     numberOfSeasons = (this as? TvShow)?.numberOfSeasons,
     numberOfEpisodes = (this as? TvShow)?.numberOfEpisodes,
+    runtime = when (this) {
+        is Movie -> runtime
+        is TvShow -> episodeRunTime
+    },
 )
 
 // ── Multi-search result → Domain ───────────────────────────────────
@@ -162,6 +169,7 @@ fun TmdbTvDetailDto.toDomain(): TvShow = TvShow(
     tmdbRating = voteAverage.takeIf { it > 0f },
     numberOfSeasons = numberOfSeasons,
     numberOfEpisodes = numberOfEpisodes,
+    episodeRunTime = episodeRunTime.firstOrNull(),
 )
 
 /** Converts a season summary (from TV detail response) into the domain [Season] model. */

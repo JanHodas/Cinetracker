@@ -59,14 +59,23 @@ class StatsViewModel(
             mediaType == null -> movieRepository.observeStatusCounts()
             else -> movieRepository.observeStatusCountsByMediaType(mediaType)
         }
+        val totalRuntimeFlow = when {
+            status == null && mediaType == null -> movieRepository.observeTotalRuntime()
+            status != null && mediaType == null -> movieRepository.observeTotalRuntimeByStatus(status)
+            status == null && mediaType != null -> movieRepository.observeTotalRuntimeByMediaType(mediaType)
+            else -> movieRepository.observeTotalRuntimeByStatusAndMediaType(
+                status = checkNotNull(status), mediaType = checkNotNull(mediaType),
+            )
+        }
 
-        combine(totalCountFlow, averageRatingFlow, topGenresFlow, statusCountsFlow) {
-                totalCount, averageRating, topGenres, statusCounts ->
+        combine(totalCountFlow, averageRatingFlow, topGenresFlow, statusCountsFlow, totalRuntimeFlow) {
+                totalCount, averageRating, topGenres, statusCounts, totalRuntime ->
             StatsData(
                 totalCount = totalCount,
                 averageRating = averageRating,
                 topGenres = topGenres,
                 statusCounts = statusCounts,
+                totalRuntimeMinutes = totalRuntime,
             )
         }
     }
@@ -83,6 +92,7 @@ class StatsViewModel(
             statusCounts = data.statusCounts,
             averageRating = data.averageRating,
             topGenres = data.topGenres,
+            totalRuntimeMinutes = data.totalRuntimeMinutes,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -118,4 +128,5 @@ private data class StatsData(
     val averageRating: Float?,
     val topGenres: List<Pair<String, Int>>,
     val statusCounts: Map<WatchStatus, Int>,
+    val totalRuntimeMinutes: Int,
 )

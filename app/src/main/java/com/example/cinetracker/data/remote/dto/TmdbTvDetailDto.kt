@@ -20,6 +20,7 @@ data class TmdbTvDetailDto(
     @SerialName("vote_average") val voteAverage: Float = 0f,
     @SerialName("number_of_seasons") val numberOfSeasons: Int = 0,
     @SerialName("number_of_episodes") val numberOfEpisodes: Int = 0,
+    @SerialName("episode_run_time") val episodeRunTime: List<Int> = emptyList(),
     val seasons: List<TmdbSeasonSummaryDto> = emptyList(),
 )
 

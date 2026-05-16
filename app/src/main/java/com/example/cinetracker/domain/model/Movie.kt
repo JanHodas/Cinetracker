@@ -22,4 +22,5 @@ data class Movie(
     override val releaseDate: String?,
     override val genres: List<String>,
     override val tmdbRating: Float?,
+    val runtime: Int? = null,
 ) : MediaItem

@@ -41,6 +41,24 @@ interface WatchedEpisodeDao {
     /** Remove all watched episodes for a TV show (cleanup on list removal). */
     @Query("DELETE FROM watched_episodes WHERE tmdbId = :tmdbId")
     suspend fun deleteByTmdbId(tmdbId: Int)
+
+    /** Check if any watched episodes are missing runtime data. */
+    @Query("SELECT EXISTS(SELECT 1 FROM watched_episodes WHERE runtime IS NULL LIMIT 1)")
+    suspend fun hasEpisodesWithoutRuntime(): Boolean
+
+    // ── Runtime stats ─────────────────────────────────────────────────
+
+    /** Total watched TV runtime across all shows. */
+    @Query("SELECT COALESCE(SUM(runtime), 0) FROM watched_episodes")
+    fun observeTotalWatchedRuntime(): Flow<Int>
+
+    /** Total watched TV runtime for shows matching [watchStatus]. */
+    @Query("""
+        SELECT COALESCE(SUM(w.runtime), 0) FROM watched_episodes w
+        INNER JOIN movies m ON w.tmdbId = m.tmdbId
+        WHERE m.watchStatus = :watchStatus
+    """)
+    fun observeWatchedRuntimeByStatus(watchStatus: String): Flow<Int>
 }
 
 /** Projection for per-show episode watch count. */

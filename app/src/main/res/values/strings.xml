@@ -82,6 +82,8 @@
     <string name="stats_no_genres">Zatiaľ žiadne žánre</string>
     <string name="stats_genre_count">%1$d×</string>
     <string name="stats_section_empty">V tejto sekcii zatiaľ nie sú žiadne položky.</string>
+    <string name="stats_total_runtime">Celkový čas sledovania</string>
+    <string name="stats_runtime_hours">%1$d h %2$d min</string>
     <string name="stats_empty">Zatiaľ nemáš žiadne filmy ani seriály.\nPridaj ich cez vyhľadávanie.</string>
 
     <!-- Media type badges -->

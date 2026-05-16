@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [MovieEntity::class, WatchedEpisodeEntity::class],
-    version = 3,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -59,6 +59,31 @@ abstract class CineTrackDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration from v3 -> v4: adds `runtime` column (INTEGER, nullable)
+         * for storing film length or total TV show runtime in minutes.
+         * Also clears the content-sync flag so the next app start fetches runtimes from TMDB.
+         */
+        fun migration3to4(context: Context) = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE movies ADD COLUMN runtime INTEGER DEFAULT NULL")
+                context.getSharedPreferences("cine_track_preferences", Context.MODE_PRIVATE)
+                    .edit()
+                    .remove("last_synced_content_language")
+                    .apply()
+            }
+        }
+
+        /**
+         * Migration from v4 -> v5: adds `runtime` column to watched_episodes table
+         * for storing actual per-episode runtime in minutes.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE watched_episodes ADD COLUMN runtime INTEGER DEFAULT NULL")
+            }
+        }
+
         @Volatile
         private var instance: CineTrackDatabase? = null
 
@@ -73,7 +98,7 @@ abstract class CineTrackDatabase : RoomDatabase() {
                     CineTrackDatabase::class.java,
                     DATABASE_NAME,
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, migration3to4(context), MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

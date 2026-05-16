@@ -9,4 +9,5 @@ data class StatsUiState(
     val statusCounts: Map<WatchStatus, Int> = emptyMap(),
     val averageRating: Float? = null,
     val topGenres: List<Pair<String, Int>> = emptyList(),
+    val totalRuntimeMinutes: Int = 0,
 )

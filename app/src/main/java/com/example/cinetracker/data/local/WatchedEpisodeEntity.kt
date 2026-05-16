@@ -19,4 +19,6 @@ data class WatchedEpisodeEntity(
     val episodeNumber: Int,
     /** Epoch millis when the episode was marked as watched. */
     val watchedAt: Long = System.currentTimeMillis(),
+    /** Episode runtime in minutes (from TMDB). Null if unknown. */
+    val runtime: Int? = null,
 )

@@ -83,6 +83,20 @@ interface MovieDao {
     @Query("SELECT genres FROM movies WHERE mediaType = :mediaType")
     fun observeAllGenresByMediaType(mediaType: String): Flow<List<String>>
 
+    /** Returns true if there are saved items with null runtime (need metadata refresh). */
+    @Query("SELECT EXISTS(SELECT 1 FROM movies WHERE runtime IS NULL LIMIT 1)")
+    suspend fun hasItemsWithoutRuntime(): Boolean
+
+    // ── Runtime stats ─────────────────────────────────────────────────
+    // Movies: SUM(runtime) directly.
+    // TV: SUM(perEpisodeRuntime × watchedEpisodeCount) via correlated subquery.
+
+    @Query("SELECT COALESCE(SUM(runtime), 0) FROM movies WHERE mediaType = 'movie'")
+    fun observeMovieRuntime(): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(runtime), 0) FROM movies WHERE mediaType = 'movie' AND watchStatus = :watchStatus")
+    fun observeMovieRuntimeByStatus(watchStatus: String): Flow<Int>
+
     // ── Status-filtered stats ───────────────────────────────────────
 
     /** Total number of items with a given [watchStatus]. */

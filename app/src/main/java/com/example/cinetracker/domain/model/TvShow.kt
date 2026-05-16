@@ -20,4 +20,5 @@ data class TvShow(
     override val tmdbRating: Float?,
     val numberOfSeasons: Int,
     val numberOfEpisodes: Int,
+    val episodeRunTime: Int? = null,
 ) : MediaItem

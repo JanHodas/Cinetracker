@@ -19,6 +19,7 @@ import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.data.remote.dto.TmdbMultiSearchResultDto
 import com.example.cinetracker.ui.language.LanguageManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -367,14 +368,19 @@ class MovieRepository(
         }
 
     /** Toggle an episode's watched status: mark if unwatched, unmark if watched. */
-    suspend fun toggleEpisodeWatched(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+    suspend fun toggleEpisodeWatched(tmdbId: Int, seasonNumber: Int, episodeNumber: Int, runtime: Int? = null) {
         val existing = watchedEpisodeDao.getByTmdbId(tmdbId)
             .any { it.seasonNumber == seasonNumber && it.episodeNumber == episodeNumber }
         if (existing) {
             watchedEpisodeDao.delete(tmdbId, seasonNumber, episodeNumber)
         } else {
             watchedEpisodeDao.upsert(
-                WatchedEpisodeEntity(tmdbId = tmdbId, seasonNumber = seasonNumber, episodeNumber = episodeNumber),
+                WatchedEpisodeEntity(
+                    tmdbId = tmdbId,
+                    seasonNumber = seasonNumber,
+                    episodeNumber = episodeNumber,
+                    runtime = runtime,
+                ),
             )
         }
     }
@@ -394,43 +400,43 @@ class MovieRepository(
             .map { it.seasonNumber to it.episodeNumber }
             .toSet()
 
-        val structure = getTvSeasonStructure(tmdbId) ?: return false
+        val episodes = getTvEpisodeDetails(tmdbId) ?: return false
 
-        for ((seasonNumber, episodeCount) in structure) {
-            for (epNum in 1..episodeCount) {
-                if ((seasonNumber to epNum) !in watched) {
-                    watchedEpisodeDao.upsert(
-                        WatchedEpisodeEntity(tmdbId = tmdbId, seasonNumber = seasonNumber, episodeNumber = epNum),
-                    )
-                    if (savedEntity?.mediaType == "tv" && savedEntity.watchStatus == WatchStatus.WANT_TO_WATCH) {
-                        val savedMovie = savedEntity.toDomain()
-                        updateStatus(
-                            tmdbId = tmdbId,
-                            mediaItem = savedMovie.movie,
-                            status = WatchStatus.WATCHING,
-                            currentSaved = savedMovie,
-                        )
-                    }
-                    return true
-                }
-            }
+        val nextEpisode = episodes.firstOrNull { (it.seasonNumber to it.episodeNumber) !in watched }
+            ?: return false
+
+        watchedEpisodeDao.upsert(
+            WatchedEpisodeEntity(
+                tmdbId = tmdbId,
+                seasonNumber = nextEpisode.seasonNumber,
+                episodeNumber = nextEpisode.episodeNumber,
+                runtime = nextEpisode.runtime,
+            ),
+        )
+        if (savedEntity?.mediaType == "tv" && savedEntity.watchStatus == WatchStatus.WANT_TO_WATCH) {
+            val savedMovie = savedEntity.toDomain()
+            updateStatus(
+                tmdbId = tmdbId,
+                mediaItem = savedMovie.movie,
+                status = WatchStatus.WATCHING,
+                currentSaved = savedMovie,
+            )
         }
-        return false // all watched
+        return true
     }
 
     /** Marks every regular episode of the given TV show as watched. */
     suspend fun markAllEpisodesWatched(tvShow: TvShow) {
-        val structure = getTvSeasonStructure(tvShow.tmdbId) ?: return
-        for ((seasonNumber, episodeCount) in structure) {
-            for (epNum in 1..episodeCount) {
-                watchedEpisodeDao.upsert(
-                    WatchedEpisodeEntity(
-                        tmdbId = tvShow.tmdbId,
-                        seasonNumber = seasonNumber,
-                        episodeNumber = epNum,
-                    ),
-                )
-            }
+        val episodes = getTvEpisodeDetails(tvShow.tmdbId) ?: return
+        episodes.forEach { ep ->
+            watchedEpisodeDao.upsert(
+                WatchedEpisodeEntity(
+                    tmdbId = tvShow.tmdbId,
+                    seasonNumber = ep.seasonNumber,
+                    episodeNumber = ep.episodeNumber,
+                    runtime = ep.runtime,
+                ),
+            )
         }
     }
 
@@ -439,7 +445,10 @@ class MovieRepository(
      * the currently selected app language.
      */
     suspend fun refreshSavedMediaForCurrentLanguage() {
-        if (!LanguageManager.shouldRefreshLocalizedContent(applicationContext)) return
+        val needsLanguageRefresh = LanguageManager.shouldRefreshLocalizedContent(applicationContext)
+        val needsMovieRuntimeRefresh = movieDao.hasItemsWithoutRuntime()
+        val needsEpisodeRuntimeRefresh = watchedEpisodeDao.hasEpisodesWithoutRuntime()
+        if (!needsLanguageRefresh && !needsMovieRuntimeRefresh && !needsEpisodeRuntimeRefresh) return
 
         val savedItems = movieDao.observeAll().first()
         savedItems.forEach { entity ->
@@ -448,36 +457,83 @@ class MovieRepository(
                 else -> getMovieDetail(entity.tmdbId).getOrNull()
             } ?: return@forEach
 
-            movieDao.upsert(
-                localizedMedia.toEntity(
-                    watchStatus = entity.watchStatus,
-                    userRating = entity.userRating,
-                    note = entity.note,
-                    dateAdded = entity.dateAdded,
-                ),
+            val newEntity = localizedMedia.toEntity(
+                watchStatus = entity.watchStatus,
+                userRating = entity.userRating,
+                note = entity.note,
+                dateAdded = entity.dateAdded,
             )
+            movieDao.upsert(
+                if (newEntity.runtime == null && entity.runtime != null) {
+                    newEntity.copy(runtime = entity.runtime)
+                } else {
+                    newEntity
+                },
+            )
+
+            if (entity.mediaType == "tv" && needsEpisodeRuntimeRefresh) {
+                backfillEpisodeRuntimes(entity.tmdbId)
+            }
         }
 
         LanguageManager.markLocalizedContentSynced(applicationContext)
     }
 
+    private suspend fun backfillEpisodeRuntimes(tmdbId: Int) {
+        val episodes = getTvEpisodeDetails(tmdbId) ?: return
+        val runtimeMap = episodes.associate { (it.seasonNumber to it.episodeNumber) to it.runtime }
+        val watchedEpisodes = watchedEpisodeDao.getByTmdbId(tmdbId)
+        watchedEpisodes.filter { it.runtime == null }.forEach { entity ->
+            val runtime = runtimeMap[entity.seasonNumber to entity.episodeNumber]
+            if (runtime != null) {
+                watchedEpisodeDao.upsert(entity.copy(runtime = runtime))
+            }
+        }
+    }
+
     /**
-     * In-memory cache of season structures (seasonNumber to episodeCount pairs)
+     * In-memory cache of per-episode info (seasonNumber, episodeNumber, runtime)
      * to avoid repeated TMDB calls when the "+" button is tapped rapidly.
      */
-    private val tvStructureCache = mutableMapOf<Int, List<Pair<Int, Int>>>()
+    private val tvEpisodeCache = mutableMapOf<Int, List<EpisodeInfo>>()
 
-    private suspend fun getTvSeasonStructure(tmdbId: Int): List<Pair<Int, Int>>? {
-        tvStructureCache[tmdbId]?.let { return it }
+    private data class EpisodeInfo(val seasonNumber: Int, val episodeNumber: Int, val runtime: Int?)
+
+    private suspend fun getTvEpisodeDetails(tmdbId: Int): List<EpisodeInfo>? {
+        tvEpisodeCache[tmdbId]?.let { return it }
         val detail = runCatching {
             tmdbApi.getTvDetail(tmdbId, language = currentTmdbLanguage())
         }.getOrNull() ?: return null
-        val structure = detail.seasons
+
+        val episodes = mutableListOf<EpisodeInfo>()
+        detail.seasons
             .filter { it.seasonNumber > 0 }
             .sortedBy { it.seasonNumber }
-            .map { it.seasonNumber to it.episodeCount }
-        tvStructureCache[tmdbId] = structure
-        return structure
+            .forEach { season ->
+                val seasonDetail = runCatching {
+                    tmdbApi.getTvSeason(tmdbId, season.seasonNumber, language = currentTmdbLanguage())
+                }.getOrNull()
+                if (seasonDetail != null) {
+                    seasonDetail.episodes.forEach { ep ->
+                        episodes.add(EpisodeInfo(season.seasonNumber, ep.episodeNumber, ep.runtime))
+                    }
+                } else {
+                    for (epNum in 1..season.episodeCount) {
+                        episodes.add(EpisodeInfo(season.seasonNumber, epNum, null))
+                    }
+                }
+            }
+        tvEpisodeCache[tmdbId] = episodes
+        return episodes
+    }
+
+    private suspend fun getTvSeasonStructure(tmdbId: Int): List<Pair<Int, Int>>? {
+        val episodes = getTvEpisodeDetails(tmdbId) ?: return null
+        return episodes
+            .groupBy { it.seasonNumber }
+            .entries
+            .sortedBy { it.key }
+            .map { (seasonNumber, eps) -> seasonNumber to eps.size }
     }
 
     // ── Stats (unfiltered — all media types) ────────────────────────
@@ -517,6 +573,33 @@ class MovieRepository(
     /** Observe genre frequency for a specific [mediaType], sorted descending. */
     fun observeTopGenresByMediaType(mediaType: String): Flow<List<Pair<String, Int>>> =
         movieDao.observeAllGenresByMediaType(mediaType).map { it.toGenreRanking() }
+
+    // ── Stats (runtime) ────────────────────────────────────────────
+
+    /** Observe total watched runtime: movie runtime + actual TV episode runtimes. */
+    fun observeTotalRuntime(): Flow<Int> =
+        combine(movieDao.observeMovieRuntime(), watchedEpisodeDao.observeTotalWatchedRuntime()) { m, t -> m + t }
+
+    /** Observe total watched runtime for a specific [mediaType]. */
+    fun observeTotalRuntimeByMediaType(mediaType: String): Flow<Int> = when (mediaType) {
+        "movie" -> movieDao.observeMovieRuntime()
+        "tv" -> watchedEpisodeDao.observeTotalWatchedRuntime()
+        else -> observeTotalRuntime()
+    }
+
+    /** Observe total watched runtime for a specific [status]. */
+    fun observeTotalRuntimeByStatus(status: WatchStatus): Flow<Int> =
+        combine(
+            movieDao.observeMovieRuntimeByStatus(status.name),
+            watchedEpisodeDao.observeWatchedRuntimeByStatus(status.name),
+        ) { m, t -> m + t }
+
+    /** Observe total watched runtime for a specific [status] and [mediaType]. */
+    fun observeTotalRuntimeByStatusAndMediaType(status: WatchStatus, mediaType: String): Flow<Int> = when (mediaType) {
+        "movie" -> movieDao.observeMovieRuntimeByStatus(status.name)
+        "tv" -> watchedEpisodeDao.observeWatchedRuntimeByStatus(status.name)
+        else -> observeTotalRuntimeByStatus(status)
+    }
 
     // ── Stats (per status) ──────────────────────────────────────────
 

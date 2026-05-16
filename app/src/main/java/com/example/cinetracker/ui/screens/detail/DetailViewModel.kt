@@ -142,7 +142,13 @@ class DetailViewModel(
     /** Toggle watched status for a specific episode. */
     fun toggleEpisodeWatched(seasonNumber: Int, episodeNumber: Int) {
         viewModelScope.launch {
-            movieRepository.toggleEpisodeWatched(tmdbId, seasonNumber, episodeNumber)
+            val runtime = (_uiState.value as? DetailUiState.Success)
+                ?.seasons
+                ?.find { it.seasonNumber == seasonNumber }
+                ?.episodes
+                ?.find { it.episodeNumber == episodeNumber }
+                ?.runtime
+            movieRepository.toggleEpisodeWatched(tmdbId, seasonNumber, episodeNumber, runtime)
         }
     }
 
