@@ -19,7 +19,7 @@ fun CineTrackNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Route.Search.path,
+        startDestination = Route.MyList.path,
         modifier = modifier,
     ) {
         composable(Route.Search.path) {
