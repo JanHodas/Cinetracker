@@ -274,7 +274,11 @@ class MovieRepository(
     suspend fun saveAsWantToWatchIfMissing(mediaItem: MediaItem): Boolean {
         val existing = movieDao.observeByTmdbId(mediaItem.tmdbId).first()
         if (existing != null) return false
-        saveMedia(mediaItem = mediaItem, watchStatus = WatchStatus.WANT_TO_WATCH)
+        val enrichedMediaItem = when (mediaItem) {
+            is TvShow -> getTvDetail(mediaItem.tmdbId).getOrDefault(mediaItem)
+            else -> mediaItem
+        }
+        saveMedia(mediaItem = enrichedMediaItem, watchStatus = WatchStatus.WANT_TO_WATCH)
         return true
     }
 
