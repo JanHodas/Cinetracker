@@ -394,6 +394,7 @@ class MovieRepository(
             .any { it.seasonNumber == seasonNumber && it.episodeNumber == episodeNumber }
         if (existing) {
             watchedEpisodeDao.delete(tmdbId, seasonNumber, episodeNumber)
+            syncTvStatusWithEpisodeProgress(tmdbId)
         } else {
             watchedEpisodeDao.upsert(
                 WatchedEpisodeEntity(
@@ -403,6 +404,7 @@ class MovieRepository(
                     runtime = runtime,
                 ),
             )
+            syncTvStatusWithEpisodeProgress(tmdbId)
         }
     }
 
@@ -434,14 +436,8 @@ class MovieRepository(
                 runtime = nextEpisode.runtime,
             ),
         )
-        if (savedEntity?.mediaType == "tv" && savedEntity.watchStatus == WatchStatus.WANT_TO_WATCH) {
-            val savedMovie = savedEntity.toDomain()
-            updateStatus(
-                tmdbId = tmdbId,
-                mediaItem = savedMovie.movie,
-                status = WatchStatus.WATCHING,
-                currentSaved = savedMovie,
-            )
+        if (savedEntity != null) {
+            syncTvStatusWithEpisodeProgress(tmdbId, savedEntity.toDomain())
         }
         return true
     }
@@ -473,6 +469,7 @@ class MovieRepository(
                 ),
             )
         }
+        syncTvStatusWithEpisodeProgress(tmdbId)
     }
 
     /** Unmarks all watched episodes in a specific season. */
@@ -595,6 +592,44 @@ class MovieRepository(
             .entries
             .sortedBy { it.key }
             .map { (seasonNumber, eps) -> seasonNumber to eps.size }
+    }
+
+    private suspend fun syncTvStatusWithEpisodeProgress(
+        tmdbId: Int,
+        savedMovie: SavedMovie? = null,
+    ) {
+        val currentSaved = savedMovie ?: movieDao.observeByTmdbId(tmdbId).first()?.toDomain() ?: return
+        val tvShow = currentSaved.movie as? TvShow ?: return
+        val totalEpisodes = getTvEpisodeDetails(tmdbId)?.size ?: return
+        if (totalEpisodes <= 0) return
+        val watchedEpisodes = watchedEpisodeDao.getByTmdbId(tmdbId).size
+
+        when {
+            watchedEpisodes >= totalEpisodes && currentSaved.watchStatus != WatchStatus.WATCHED -> {
+                updateStatus(
+                    tmdbId = tmdbId,
+                    mediaItem = tvShow,
+                    status = WatchStatus.WATCHED,
+                    currentSaved = currentSaved,
+                )
+            }
+            watchedEpisodes in 1 until totalEpisodes && currentSaved.watchStatus == WatchStatus.WATCHED -> {
+                updateStatus(
+                    tmdbId = tmdbId,
+                    mediaItem = tvShow,
+                    status = WatchStatus.WATCHING,
+                    currentSaved = currentSaved,
+                )
+            }
+            watchedEpisodes > 0 && currentSaved.watchStatus == WatchStatus.WANT_TO_WATCH -> {
+                updateStatus(
+                    tmdbId = tmdbId,
+                    mediaItem = tvShow,
+                    status = WatchStatus.WATCHING,
+                    currentSaved = currentSaved,
+                )
+            }
+        }
     }
 
     // ── Stats (unfiltered — all media types) ────────────────────────
