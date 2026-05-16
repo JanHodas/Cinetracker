@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
@@ -173,7 +176,7 @@ private fun StatusFilterRow(
 
     Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -181,7 +184,8 @@ private fun StatusFilterRow(
             FilterChip(
                 selected = activeFilter == status,
                 onClick = { onFilterSelected(status) },
-                label = { Text(label) },
+                label = { Text(text = label, maxLines = 1) },
+                modifier = Modifier.wrapContentWidth(),
             )
         }
     }
@@ -200,7 +204,7 @@ private fun MediaTypeFilterRow(
 
     Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 0.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -208,7 +212,8 @@ private fun MediaTypeFilterRow(
             FilterChip(
                 selected = activeFilter == mediaType,
                 onClick = { onFilterSelected(mediaType) },
-                label = { Text(label) },
+                label = { Text(text = label, maxLines = 1) },
+                modifier = Modifier.wrapContentWidth(),
             )
         }
     }
