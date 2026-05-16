@@ -2,6 +2,7 @@ package com.example.cinetracker.ui.language
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
 import java.util.Locale
 
@@ -34,7 +35,7 @@ object LanguageManager {
             .putString(KEY_APP_LANGUAGE, language.tag)
             .apply()
 
-        (context as? Activity)?.recreate()
+        context.findActivity()?.recreate()
     }
 
     fun currentTmdbLanguage(context: Context): String = when (currentLanguage(context)) {
@@ -52,5 +53,11 @@ object LanguageManager {
         prefs.edit()
             .putString(KEY_LAST_SYNCED_CONTENT_LANGUAGE, currentTmdbLanguage(context))
             .apply()
+    }
+
+    private tailrec fun Context.findActivity(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 }

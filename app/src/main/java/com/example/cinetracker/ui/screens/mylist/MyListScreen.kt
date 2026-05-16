@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -25,6 +27,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +51,8 @@ import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.ui.components.MovieListItem
+import com.example.cinetracker.ui.language.AppLanguage
+import com.example.cinetracker.ui.language.LanguageManager
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -58,6 +64,9 @@ fun MyListScreen(
     viewModel: MyListViewModel = viewModel(factory = MyListViewModel.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val currentLanguage = LanguageManager.currentLanguage(context)
+    var languageMenuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val deletedMessage = stringResource(R.string.mylist_deleted_snackbar)
@@ -77,6 +86,28 @@ fun MyListScreen(
                     text = stringResource(R.string.mylist_title),
                     style = MaterialTheme.typography.headlineSmall,
                 )
+                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    TextButton(onClick = { languageMenuExpanded = true }) {
+                        Text(
+                            text = currentLanguage.shortLabel,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = languageMenuExpanded,
+                        onDismissRequest = { languageMenuExpanded = false },
+                    ) {
+                        AppLanguage.entries.forEach { language ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(language.labelRes)) },
+                                onClick = {
+                                    languageMenuExpanded = false
+                                    LanguageManager.updateLanguage(context, language)
+                                },
+                            )
+                        }
+                    }
+                }
             }
         },
     ) { innerPadding ->

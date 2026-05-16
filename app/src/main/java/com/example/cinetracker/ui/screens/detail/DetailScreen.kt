@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -42,6 +44,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +58,7 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -75,6 +79,8 @@ import com.example.cinetracker.domain.model.WatchStatus
 import com.example.cinetracker.domain.util.TmdbImageUrl
 import com.example.cinetracker.ui.components.AsyncMoviePoster
 import com.example.cinetracker.ui.components.SeasonCard
+import com.example.cinetracker.ui.language.AppLanguage
+import com.example.cinetracker.ui.language.LanguageManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +91,10 @@ fun DetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val savedState by viewModel.savedState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val currentLanguage = LanguageManager.currentLanguage(context)
+    var languageMenuExpanded by remember { mutableStateOf(false) }
+    var languageInitialized by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     val savedMessage = stringResource(R.string.detail_saved_snackbar)
@@ -96,6 +106,14 @@ fun DetailScreen(
                 DetailEvent.MovieSaved -> snackbarHostState.showSnackbar(savedMessage)
                 DetailEvent.MovieRemoved -> snackbarHostState.showSnackbar(removedMessage)
             }
+        }
+    }
+
+    LaunchedEffect(currentLanguage.tag) {
+        if (languageInitialized) {
+            viewModel.retry()
+        } else {
+            languageInitialized = true
         }
     }
 
@@ -126,6 +144,28 @@ fun DetailScreen(
                         .align(Alignment.CenterStart)
                         .padding(start = 52.dp),
                 )
+                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    TextButton(onClick = { languageMenuExpanded = true }) {
+                        Text(
+                            text = currentLanguage.shortLabel,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = languageMenuExpanded,
+                        onDismissRequest = { languageMenuExpanded = false },
+                    ) {
+                        AppLanguage.entries.forEach { language ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(language.labelRes)) },
+                                onClick = {
+                                    languageMenuExpanded = false
+                                    LanguageManager.updateLanguage(context, language)
+                                },
+                            )
+                        }
+                    }
+                }
             }
         },
     ) { innerPadding ->
