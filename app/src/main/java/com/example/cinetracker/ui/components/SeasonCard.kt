@@ -49,6 +49,7 @@ fun SeasonCard(
     season: Season,
     watchedEpisodes: Set<Int> = emptySet(),
     onToggleEpisode: (episodeNumber: Int) -> Unit = {},
+    onToggleSeasonWatched: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable(season.seasonNumber) { mutableStateOf(false) }
@@ -101,6 +102,26 @@ fun SeasonCard(
                             text = season.overview,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (onToggleSeasonWatched != null) {
+                    val allWatched = watchedCount >= season.episodeCount && season.episodeCount > 0
+                    IconButton(
+                        onClick = onToggleSeasonWatched,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (allWatched) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+                            contentDescription = stringResource(
+                                if (allWatched) {
+                                    R.string.detail_unmark_season_watched
+                                } else {
+                                    R.string.detail_mark_season_watched
+                                },
+                            ),
+                            tint = if (allWatched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }

@@ -42,6 +42,8 @@
     <string name="detail_episode_label">Epizóda %1$d: %2$s</string>
     <string name="detail_episode_progress">Pozreté: %1$d/%2$d</string>
     <string name="detail_toggle_episode">Prepnúť stav epizódy</string>
+    <string name="detail_mark_season_watched">Označiť celú sériu ako pozretú</string>
+    <string name="detail_unmark_season_watched">Odznačiť celú sériu ako pozretú</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Hľadaj film alebo seriál…</string>

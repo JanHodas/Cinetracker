@@ -440,6 +440,31 @@ class MovieRepository(
         }
     }
 
+    /** Marks all episodes in a specific season as watched. */
+    suspend fun markSeasonWatched(tmdbId: Int, seasonNumber: Int, episodeRuntimes: List<Pair<Int, Int?>>) {
+        episodeRuntimes.forEach { (episodeNumber, runtime) ->
+            watchedEpisodeDao.upsert(
+                WatchedEpisodeEntity(
+                    tmdbId = tmdbId,
+                    seasonNumber = seasonNumber,
+                    episodeNumber = episodeNumber,
+                    runtime = runtime,
+                ),
+            )
+        }
+    }
+
+    /** Unmarks all watched episodes in a specific season. */
+    suspend fun unmarkSeasonWatched(tmdbId: Int, seasonNumber: Int, episodeNumbers: List<Int>) {
+        episodeNumbers.forEach { episodeNumber ->
+            watchedEpisodeDao.delete(
+                tmdbId = tmdbId,
+                seasonNumber = seasonNumber,
+                episodeNumber = episodeNumber,
+            )
+        }
+    }
+
     /**
      * Refreshes already-saved movies and TV shows so the local list reflects
      * the currently selected app language.

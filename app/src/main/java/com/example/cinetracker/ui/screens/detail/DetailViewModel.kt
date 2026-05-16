@@ -152,6 +152,26 @@ class DetailViewModel(
         }
     }
 
+    /** Toggle all episodes in a season between watched/unwatched. */
+    fun toggleSeasonWatched(seasonNumber: Int) {
+        viewModelScope.launch {
+            val state = _uiState.value as? DetailUiState.Success ?: return@launch
+            val season = state.seasons.find { it.seasonNumber == seasonNumber } ?: return@launch
+            val seasonWatched = state.watchedEpisodes
+                .filter { it.first == seasonNumber }
+                .map { it.second }
+                .toSet()
+            val allWatched = seasonWatched.size >= season.episodeCount && season.episodeCount > 0
+
+            if (allWatched) {
+                movieRepository.unmarkSeasonWatched(tmdbId, seasonNumber, season.episodes.map { it.episodeNumber })
+            } else {
+                val episodeRuntimes = season.episodes.map { it.episodeNumber to it.runtime }
+                movieRepository.markSeasonWatched(tmdbId, seasonNumber, episodeRuntimes)
+            }
+        }
+    }
+
     private fun loadDetail() {
         _uiState.value = DetailUiState.Loading
         viewModelScope.launch {

@@ -144,6 +144,7 @@ fun DetailScreen(
                     onUpdateNote = viewModel::updateNote,
                     onRemoveFromList = viewModel::removeFromList,
                     onToggleEpisodeWatched = viewModel::toggleEpisodeWatched,
+                    onToggleSeasonWatched = viewModel::toggleSeasonWatched,
                 )
             }
         }
@@ -164,6 +165,7 @@ private fun SuccessContent(
     onUpdateNote: (String) -> Unit,
     onRemoveFromList: () -> Unit,
     onToggleEpisodeWatched: (seasonNumber: Int, episodeNumber: Int) -> Unit,
+    onToggleSeasonWatched: (seasonNumber: Int) -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val isSaved = savedMovie != null
@@ -249,6 +251,9 @@ private fun SuccessContent(
                                 watchedEpisodes = seasonWatched,
                                 onToggleEpisode = { epNum ->
                                     onToggleEpisodeWatched(season.seasonNumber, epNum)
+                                },
+                                onToggleSeasonWatched = {
+                                    onToggleSeasonWatched(season.seasonNumber)
                                 },
                             )
                         }
