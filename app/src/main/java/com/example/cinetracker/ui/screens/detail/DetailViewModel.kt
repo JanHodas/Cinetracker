@@ -73,6 +73,14 @@ class DetailViewModel(
             MutableStateFlow(emptySet())
         }
 
+    private val seasonRatingsState: StateFlow<Map<Int, Float?>> =
+        if (mediaType == MEDIA_TYPE_TV) {
+            movieRepository.observeSeasonRatings(tmdbId)
+                .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+        } else {
+            MutableStateFlow(emptyMap())
+        }
+
     init {
         loadDetail()
 
@@ -91,6 +99,13 @@ class DetailViewModel(
                 .onEach { watched ->
                     val current = _uiState.value as? DetailUiState.Success ?: return@onEach
                     _uiState.value = current.copy(watchedEpisodes = watched)
+                }
+                .launchIn(viewModelScope)
+
+            seasonRatingsState
+                .onEach { ratings ->
+                    val current = _uiState.value as? DetailUiState.Success ?: return@onEach
+                    _uiState.value = current.copy(seasonRatings = ratings)
                 }
                 .launchIn(viewModelScope)
         }
@@ -121,6 +136,12 @@ class DetailViewModel(
         val saved = savedState.value ?: return
         viewModelScope.launch {
             movieRepository.updateRating(mediaItem, rating, saved)
+        }
+    }
+
+    fun updateSeasonRating(seasonNumber: Int, rating: Float?) {
+        viewModelScope.launch {
+            movieRepository.updateSeasonRating(tmdbId, seasonNumber, rating)
         }
     }
 
@@ -201,6 +222,7 @@ class DetailViewModel(
                     mediaItem = tvShow,
                     seasons = loadTvSeasons(tvShow.numberOfSeasons),
                     watchedEpisodes = watchedEpisodesState.value,
+                    seasonRatings = seasonRatingsState.value,
                 )
                 loadCastForCurrentItem()
             },

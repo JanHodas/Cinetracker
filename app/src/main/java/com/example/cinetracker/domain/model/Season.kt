@@ -11,6 +11,8 @@ data class Season(
     val name: String,
     val overview: String,
     val posterPath: String?,
+    val tmdbRating: Float? = null,
     val episodeCount: Int,
     val episodes: List<Episode> = emptyList(),
+    val userRating: Float? = null,
 )

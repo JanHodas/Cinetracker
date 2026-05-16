@@ -16,8 +16,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * column (`"movie"` / `"tv"`) discriminates between movies and TV shows.
  */
 @Database(
-    entities = [MovieEntity::class, WatchedEpisodeEntity::class],
-    version = 5,
+    entities = [MovieEntity::class, WatchedEpisodeEntity::class, SeasonRatingEntity::class],
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -25,6 +25,7 @@ abstract class CineTrackDatabase : RoomDatabase() {
 
     abstract fun movieDao(): MovieDao
     abstract fun watchedEpisodeDao(): WatchedEpisodeDao
+    abstract fun seasonRatingDao(): SeasonRatingDao
 
     companion object {
         private const val DATABASE_NAME = "cinetrack.db"
@@ -84,6 +85,23 @@ abstract class CineTrackDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration from v5 -> v6: creates the `season_ratings` table
+         * for storing user ratings per TV season.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS season_ratings (" +
+                        "tmdbId INTEGER NOT NULL, " +
+                        "seasonNumber INTEGER NOT NULL, " +
+                        "userRating REAL, " +
+                        "ratedAt INTEGER NOT NULL, " +
+                        "PRIMARY KEY(tmdbId, seasonNumber))",
+                )
+            }
+        }
+
         @Volatile
         private var instance: CineTrackDatabase? = null
 
@@ -98,7 +116,13 @@ abstract class CineTrackDatabase : RoomDatabase() {
                     CineTrackDatabase::class.java,
                     DATABASE_NAME,
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, migration3to4(context), MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        migration3to4(context),
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                    )
                     .build()
                     .also { instance = it }
             }

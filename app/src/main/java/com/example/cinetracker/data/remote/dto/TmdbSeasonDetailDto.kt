@@ -15,5 +15,6 @@ data class TmdbSeasonDetailDto(
     val name: String,
     val overview: String = "",
     @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("vote_average") val voteAverage: Float = 0f,
     val episodes: List<TmdbEpisodeDto> = emptyList(),
 )

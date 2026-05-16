@@ -42,6 +42,10 @@
     <string name="detail_episode_label">Episode %1$d: %2$s</string>
     <string name="detail_episode_progress">Watched: %1$d/%2$d</string>
     <string name="detail_toggle_episode">Toggle episode status</string>
+    <string name="detail_mark_season_watched">Mark whole season as watched</string>
+    <string name="detail_unmark_season_watched">Unmark whole season as watched</string>
+    <string name="detail_season_rating_title">Season rating</string>
+    <string name="detail_season_rating_value">%1$.0f / 10</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Search a movie or TV show…</string>

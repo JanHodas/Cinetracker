@@ -137,10 +137,12 @@ fun DetailScreen(
                     cast = state.cast,
                     seasons = state.seasons,
                     watchedEpisodes = state.watchedEpisodes,
+                    seasonRatings = state.seasonRatings,
                     savedMovie = savedState,
                     onSaveToList = viewModel::saveToList,
                     onUpdateStatus = viewModel::updateStatus,
                     onUpdateRating = viewModel::updateRating,
+                    onUpdateSeasonRating = viewModel::updateSeasonRating,
                     onUpdateNote = viewModel::updateNote,
                     onRemoveFromList = viewModel::removeFromList,
                     onToggleEpisodeWatched = viewModel::toggleEpisodeWatched,
@@ -158,10 +160,12 @@ private fun SuccessContent(
     cast: List<CastMember>,
     seasons: List<Season>,
     watchedEpisodes: Set<Pair<Int, Int>>,
+    seasonRatings: Map<Int, Float?>,
     savedMovie: SavedMovie?,
     onSaveToList: (WatchStatus) -> Unit,
     onUpdateStatus: (WatchStatus) -> Unit,
     onUpdateRating: (Float?) -> Unit,
+    onUpdateSeasonRating: (seasonNumber: Int, rating: Float?) -> Unit,
     onUpdateNote: (String) -> Unit,
     onRemoveFromList: () -> Unit,
     onToggleEpisodeWatched: (seasonNumber: Int, episodeNumber: Int) -> Unit,
@@ -242,18 +246,24 @@ private fun SuccessContent(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         seasons.forEach { season ->
+                            val ratedSeason = season.copy(userRating = seasonRatings[season.seasonNumber])
                             val seasonWatched = watchedEpisodes
                                 .filter { it.first == season.seasonNumber }
                                 .map { it.second }
                                 .toSet()
+                            val canRateSeason = season.episodeCount > 0 && seasonWatched.size >= season.episodeCount
                             SeasonCard(
-                                season = season,
+                                season = ratedSeason,
                                 watchedEpisodes = seasonWatched,
                                 onToggleEpisode = { epNum ->
                                     onToggleEpisodeWatched(season.seasonNumber, epNum)
                                 },
                                 onToggleSeasonWatched = {
                                     onToggleSeasonWatched(season.seasonNumber)
+                                },
+                                canRateSeason = canRateSeason,
+                                onUpdateSeasonRating = { rating ->
+                                    onUpdateSeasonRating(season.seasonNumber, rating)
                                 },
                             )
                         }

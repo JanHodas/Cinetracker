@@ -44,6 +44,8 @@
     <string name="detail_toggle_episode">Prepnúť stav epizódy</string>
     <string name="detail_mark_season_watched">Označiť celú sériu ako pozretú</string>
     <string name="detail_unmark_season_watched">Odznačiť celú sériu ako pozretú</string>
+    <string name="detail_season_rating_title">Hodnotenie série</string>
+    <string name="detail_season_rating_value">%1$.0f / 10</string>
 
     <!-- Search screen -->
     <string name="search_field_placeholder">Hľadaj film alebo seriál…</string>

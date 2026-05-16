@@ -3,6 +3,7 @@ package com.example.cinetracker.di
 import android.content.Context
 import com.example.cinetracker.data.local.CineTrackDatabase
 import com.example.cinetracker.data.local.MovieDao
+import com.example.cinetracker.data.local.SeasonRatingDao
 import com.example.cinetracker.data.local.WatchedEpisodeDao
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.remote.NetworkModule
@@ -25,6 +26,7 @@ class ServiceLocator(
     }
     val movieDao: MovieDao by lazy { database.movieDao() }
     val watchedEpisodeDao: WatchedEpisodeDao by lazy { database.watchedEpisodeDao() }
+    val seasonRatingDao: SeasonRatingDao by lazy { database.seasonRatingDao() }
     val tmdbApi: TmdbApi = NetworkModule.tmdbApi
     val movieRepository: MovieRepository by lazy {
         MovieRepository(
@@ -32,12 +34,17 @@ class ServiceLocator(
             tmdbApi = tmdbApi,
             movieDao = movieDao,
             watchedEpisodeDao = watchedEpisodeDao,
+            seasonRatingDao = seasonRatingDao,
         )
     }
     val networkConnectivityObserver: NetworkConnectivityObserver by lazy {
         NetworkConnectivityObserver(applicationContext)
     }
     val backupRepository: BackupRepository by lazy {
-        BackupRepository(movieDao = movieDao, watchedEpisodeDao = watchedEpisodeDao)
+        BackupRepository(
+            movieDao = movieDao,
+            watchedEpisodeDao = watchedEpisodeDao,
+            seasonRatingDao = seasonRatingDao,
+        )
     }
 }

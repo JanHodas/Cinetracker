@@ -178,6 +178,7 @@ fun TmdbSeasonSummaryDto.toDomain(): Season = Season(
     name = name,
     overview = overview,
     posterPath = posterPath,
+    tmdbRating = voteAverage.takeIf { it > 0f },
     episodeCount = episodeCount,
 )
 
@@ -187,6 +188,7 @@ fun TmdbSeasonDetailDto.toDomain(): Season = Season(
     name = name,
     overview = overview,
     posterPath = posterPath,
+    tmdbRating = voteAverage.takeIf { it > 0f },
     episodeCount = episodes.size,
     episodes = episodes.map { it.toDomain() },
 )

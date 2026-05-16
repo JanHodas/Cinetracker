@@ -3,6 +3,8 @@ package com.example.cinetracker.data.repository
 import android.content.Context
 import com.example.cinetracker.data.local.EpisodeWatchCount
 import com.example.cinetracker.data.local.MovieDao
+import com.example.cinetracker.data.local.SeasonRatingDao
+import com.example.cinetracker.data.local.SeasonRatingEntity
 import com.example.cinetracker.data.local.WatchedEpisodeDao
 import com.example.cinetracker.data.local.WatchedEpisodeEntity
 import com.example.cinetracker.data.remote.TmdbApi
@@ -39,6 +41,7 @@ class MovieRepository(
     private val tmdbApi: TmdbApi,
     private val movieDao: MovieDao,
     private val watchedEpisodeDao: WatchedEpisodeDao,
+    private val seasonRatingDao: SeasonRatingDao,
 ) {
     private val genreCacheMutex = Mutex()
     @Volatile private var cachedMovieGenres: Map<String, Map<Int, String>> = emptyMap()
@@ -323,6 +326,7 @@ class MovieRepository(
     suspend fun removeMovie(tmdbId: Int) {
         movieDao.deleteByTmdbId(tmdbId)
         watchedEpisodeDao.deleteByTmdbId(tmdbId)
+        seasonRatingDao.deleteByTmdbId(tmdbId)
     }
 
     /**
@@ -365,6 +369,12 @@ class MovieRepository(
     fun observeAllWatchedCounts(): Flow<Map<Int, Int>> =
         watchedEpisodeDao.observeAllCounts().map { counts ->
             counts.associate { it.tmdbId to it.count }
+        }
+
+    /** Observe user ratings for individual seasons of a TV show. */
+    fun observeSeasonRatings(tmdbId: Int): Flow<Map<Int, Float?>> =
+        seasonRatingDao.observeByTmdbId(tmdbId).map { entities ->
+            entities.associate { it.seasonNumber to it.userRating }
         }
 
     /** Toggle an episode's watched status: mark if unwatched, unmark if watched. */
@@ -461,6 +471,21 @@ class MovieRepository(
                 tmdbId = tmdbId,
                 seasonNumber = seasonNumber,
                 episodeNumber = episodeNumber,
+            )
+        }
+    }
+
+    /** Stores or clears the user's rating for a specific season. */
+    suspend fun updateSeasonRating(tmdbId: Int, seasonNumber: Int, rating: Float?) {
+        if (rating == null) {
+            seasonRatingDao.delete(tmdbId, seasonNumber)
+        } else {
+            seasonRatingDao.upsert(
+                SeasonRatingEntity(
+                    tmdbId = tmdbId,
+                    seasonNumber = seasonNumber,
+                    userRating = rating,
+                ),
             )
         }
     }

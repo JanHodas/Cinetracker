@@ -13,6 +13,8 @@ sealed interface DetailUiState {
         val seasons: List<Season> = emptyList(),
         /** Set of (seasonNumber, episodeNumber) pairs that the user has watched. */
         val watchedEpisodes: Set<Pair<Int, Int>> = emptySet(),
+        /** Per-season user ratings keyed by season number. */
+        val seasonRatings: Map<Int, Float?> = emptyMap(),
     ) : DetailUiState
     data class Error(val message: String) : DetailUiState
 }

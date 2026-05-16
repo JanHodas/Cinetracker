@@ -7,9 +7,10 @@ data class BackupData(
     val version: Int = CURRENT_VERSION,
     val movies: List<BackupMovie> = emptyList(),
     val watchedEpisodes: List<BackupWatchedEpisode> = emptyList(),
+    val seasonRatings: List<BackupSeasonRating> = emptyList(),
 ) {
     companion object {
-        const val CURRENT_VERSION = 1
+        const val CURRENT_VERSION = 2
     }
 }
 
@@ -40,4 +41,12 @@ data class BackupWatchedEpisode(
     val episodeNumber: Int,
     val watchedAt: Long,
     val runtime: Int? = null,
+)
+
+@Serializable
+data class BackupSeasonRating(
+    val tmdbId: Int,
+    val seasonNumber: Int,
+    val userRating: Float?,
+    val ratedAt: Long,
 )

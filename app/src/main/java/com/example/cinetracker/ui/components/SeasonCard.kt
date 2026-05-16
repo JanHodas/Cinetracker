@@ -15,14 +15,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,10 +54,19 @@ fun SeasonCard(
     watchedEpisodes: Set<Int> = emptySet(),
     onToggleEpisode: (episodeNumber: Int) -> Unit = {},
     onToggleSeasonWatched: (() -> Unit)? = null,
+    canRateSeason: Boolean = false,
+    onUpdateSeasonRating: ((Float?) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable(season.seasonNumber) { mutableStateOf(false) }
     val watchedCount = watchedEpisodes.size
+    var seasonRating by rememberSaveable(season.seasonNumber) {
+        mutableFloatStateOf(season.userRating ?: 5f)
+    }
+
+    LaunchedEffect(season.userRating) {
+        season.userRating?.let { seasonRating = it }
+    }
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -86,6 +99,24 @@ fun SeasonCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    season.tmdbRating?.let { rating ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.tertiary,
+                            )
+                            Text(
+                                text = stringResource(R.string.detail_rating_format, rating),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     if (watchedCount > 0 || season.episodes.isNotEmpty()) {
                         Text(
                             text = stringResource(
@@ -102,6 +133,13 @@ fun SeasonCard(
                             text = season.overview,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (canRateSeason && season.userRating != null) {
+                        Text(
+                            text = stringResource(R.string.detail_season_rating_value, season.userRating),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -147,6 +185,31 @@ fun SeasonCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     } else {
+                        if (canRateSeason && onUpdateSeasonRating != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.detail_season_rating_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    text = stringResource(R.string.detail_season_rating_value, seasonRating),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Slider(
+                                    value = seasonRating,
+                                    onValueChange = { seasonRating = it },
+                                    onValueChangeFinished = { onUpdateSeasonRating(seasonRating) },
+                                    valueRange = 1f..10f,
+                                    steps = 8,
+                                )
+                            }
+                        }
                         season.episodes.forEach { episode ->
                             val isWatched = episode.episodeNumber in watchedEpisodes
 
