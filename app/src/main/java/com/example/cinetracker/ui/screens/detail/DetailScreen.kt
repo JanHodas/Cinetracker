@@ -42,8 +42,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,20 +103,30 @@ fun DetailScreen(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.detail_title)) },
-                navigationIcon = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.detail_back),
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+                }
+                Text(
+                    text = stringResource(R.string.detail_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 52.dp),
+                )
+            }
         },
     ) { innerPadding ->
         Box(
