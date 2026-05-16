@@ -69,6 +69,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cinetracker.R
 import com.example.cinetracker.domain.model.CastMember
 import com.example.cinetracker.domain.model.MediaItem
+import com.example.cinetracker.domain.model.Movie
 import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.Season
 import com.example.cinetracker.domain.model.TvShow
@@ -426,6 +427,13 @@ private fun MetadataRow(mediaItem: MediaItem) {
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
+        if (mediaItem is Movie && mediaItem.runtime != null) {
+            Text(
+                text = stringResource(R.string.detail_runtime_minutes, mediaItem.runtime),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (mediaItem is TvShow) {
             Text(
