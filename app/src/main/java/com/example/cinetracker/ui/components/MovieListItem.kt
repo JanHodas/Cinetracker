@@ -48,6 +48,7 @@ fun MovieListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     watchStatus: WatchStatus? = null,
+    userRating: Float? = null,
     watchedEpisodes: Int? = null,
     totalEpisodes: Int? = null,
     onToggleWatched: (() -> Unit)? = null,
@@ -58,6 +59,7 @@ fun MovieListItem(
     onDelete: (() -> Unit)? = null,
 ) {
     val showEpisodeProgress = movie is TvShow && totalEpisodes != null && totalEpisodes > 0
+    val showUserRating = watchStatus == WatchStatus.WATCHED && userRating != null
 
     Column(
         modifier = modifier
@@ -111,7 +113,9 @@ fun MovieListItem(
                     }
                 }
 
-                if (showEpisodeProgress) {
+                if (showUserRating) {
+                    UserRatingSection(rating = userRating)
+                } else if (showEpisodeProgress) {
                     EpisodeProgressSection(
                         watchedEpisodes = watchedEpisodes ?: 0,
                         totalEpisodes = totalEpisodes,
@@ -229,6 +233,40 @@ private fun EpisodeProgressSection(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun UserRatingSection(rating: Float) {
+    val filledSegments = rating.toInt().coerceIn(0, 10)
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            repeat(10) { index ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (index < filledSegments) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                        ),
+                )
+            }
+        }
+        Text(
+            text = stringResource(R.string.detail_rating_value, rating),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }

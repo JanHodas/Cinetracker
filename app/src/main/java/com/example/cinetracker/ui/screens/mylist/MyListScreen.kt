@@ -317,6 +317,7 @@ private fun SwipeToDismissItem(
             movie = savedMovie.movie,
             onClick = onClick,
             watchStatus = savedMovie.watchStatus,
+            userRating = savedMovie.userRating,
             watchedEpisodes = watchedEpisodes,
             totalEpisodes = totalEpisodes,
             onToggleWatched = onToggleWatched,
