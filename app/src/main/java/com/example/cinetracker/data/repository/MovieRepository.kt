@@ -48,6 +48,12 @@ class MovieRepository(
     @Volatile private var cachedMovieGenres: Map<String, Map<Int, String>> = emptyMap()
     @Volatile private var cachedTvGenres: Map<String, Map<Int, String>> = emptyMap()
 
+    data class SearchPageResult(
+        val items: List<MediaItem>,
+        val totalPages: Int,
+        val totalResults: Int,
+    )
+
     // ── Remote — Search ────────────────────────────────────────────
 
     /**
@@ -72,9 +78,31 @@ class MovieRepository(
      */
     suspend fun searchMulti(query: String): Result<List<MediaItem>> = runCatching {
         if (query.isBlank()) return@runCatching emptyList()
+        val firstPage = searchMultiPage(query = query, page = 1).getOrThrow()
+        if (firstPage.totalPages <= 1) {
+            return@runCatching firstPage.items
+        }
+
+        buildList {
+            addAll(firstPage.items)
+            for (page in 2..firstPage.totalPages) {
+                addAll(searchMultiPage(query = query, page = page).getOrThrow().items)
+            }
+        }
+    }
+
+    suspend fun searchMultiPage(query: String, page: Int): Result<SearchPageResult> = runCatching {
+        if (query.isBlank()) {
+            return@runCatching SearchPageResult(
+                items = emptyList(),
+                totalPages = 0,
+                totalResults = 0,
+            )
+        }
         val language = currentTmdbLanguage()
         val allGenres = ensureAllGenres(language)
-        val localizedResults = tmdbApi.searchMulti(query = query, language = language).results
+        val response = tmdbApi.searchMulti(query = query, language = language, page = page)
+        val localizedResults = response.results
 
         val fallbackLanguage = fallbackLanguage(language)
         val needsFallback = fallbackLanguage != null && localizedResults.any { result ->
@@ -87,8 +115,11 @@ class MovieRepository(
 
         val fallbackOverviews: Map<Int, String> = if (needsFallback) {
             runCatching {
-                tmdbApi.searchMulti(query = query, language = checkNotNull(fallbackLanguage))
-                    .results
+                tmdbApi.searchMulti(
+                    query = query,
+                    language = checkNotNull(fallbackLanguage),
+                    page = page,
+                ).results
                     .mapNotNull { r ->
                         when (r) {
                             is TmdbMultiSearchResultDto.MovieResult -> r.id to r.overview
@@ -102,19 +133,23 @@ class MovieRepository(
             emptyMap()
         }
 
-        localizedResults.mapNotNull { result ->
-            when (result) {
-                is TmdbMultiSearchResultDto.MovieResult -> {
-                    val overview = result.overview.ifBlank { fallbackOverviews[result.id] ?: "" }
-                    result.copy(overview = overview).toDomain(allGenres)
+        SearchPageResult(
+            items = localizedResults.mapNotNull { result ->
+                when (result) {
+                    is TmdbMultiSearchResultDto.MovieResult -> {
+                        val overview = result.overview.ifBlank { fallbackOverviews[result.id] ?: "" }
+                        result.copy(overview = overview).toDomain(allGenres)
+                    }
+                    is TmdbMultiSearchResultDto.TvResult -> {
+                        val overview = result.overview.ifBlank { fallbackOverviews[result.id] ?: "" }
+                        result.copy(overview = overview).toDomain(allGenres)
+                    }
+                    is TmdbMultiSearchResultDto.Unknown -> null
                 }
-                is TmdbMultiSearchResultDto.TvResult -> {
-                    val overview = result.overview.ifBlank { fallbackOverviews[result.id] ?: "" }
-                    result.copy(overview = overview).toDomain(allGenres)
-                }
-                is TmdbMultiSearchResultDto.Unknown -> null
-            }
-        }
+            },
+            totalPages = response.totalPages,
+            totalResults = response.totalResults,
+        )
     }
 
     // ── Remote — Detail ────────────────────────────────────────────

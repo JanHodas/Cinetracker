@@ -3,6 +3,7 @@ package com.example.cinetracker.ui.screens.search
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +44,7 @@ fun SearchScreen(
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val errorMessage = uiState.errorMessage
 
     Column(modifier = modifier.fillMaxSize()) {
         SearchField(
@@ -53,28 +56,106 @@ fun SearchScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
-        when (val state = uiState) {
-            is SearchUiState.Idle -> CenteredMessage(text = stringResource(R.string.search_state_idle))
-            is SearchUiState.Loading -> CenteredProgress()
-            is SearchUiState.Empty -> CenteredMessage(text = stringResource(R.string.search_state_empty))
-            is SearchUiState.Error -> ErrorState(
-                message = state.message,
+        when {
+            uiState.isIdle -> CenteredMessage(text = stringResource(R.string.search_state_idle))
+            uiState.isLoading && uiState.items.isEmpty() -> CenteredProgress()
+            errorMessage != null && uiState.items.isEmpty() -> ErrorState(
+                message = errorMessage,
                 onRetry = viewModel::retry,
             )
-            is SearchUiState.Success -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items = state.results, key = { it.tmdbId }) { item ->
-                    val mediaType = when (item) {
-                        is Movie -> "movie"
-                        is TvShow -> "tv"
+            uiState.totalResults == 0 -> CenteredMessage(text = stringResource(R.string.search_state_empty))
+            else -> SearchResultsList(
+                state = uiState,
+                onItemClick = onItemClick,
+                onAddToList = viewModel::addToWantToWatch,
+                onPreviousPage = viewModel::goToPreviousPage,
+                onNextPage = viewModel::goToNextPage,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchResultsList(
+    state: SearchUiState,
+    onItemClick: (mediaType: String, tmdbId: Int) -> Unit,
+    onAddToList: (com.example.cinetracker.domain.model.MediaItem) -> Unit,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+        ) {
+            items(
+                items = state.items,
+                key = { item ->
+                    when (item) {
+                        is Movie -> "movie-${item.tmdbId}"
+                        is TvShow -> "tv-${item.tmdbId}"
                     }
-                    MovieListItem(
-                        movie = item,
-                        onClick = { onItemClick(mediaType, item.tmdbId) },
-                        onAddToList = { viewModel.addToWantToWatch(item) },
-                        isInList = item.tmdbId in state.savedTmdbIds,
-                    )
+                },
+            ) { item ->
+                val mediaType = when (item) {
+                    is Movie -> "movie"
+                    is TvShow -> "tv"
                 }
+                MovieListItem(
+                    movie = item,
+                    onClick = { onItemClick(mediaType, item.tmdbId) },
+                    onAddToList = { onAddToList(item) },
+                    isInList = item.tmdbId in state.savedTmdbIds,
+                )
             }
+        }
+
+        if (state.totalPages > 1) {
+            SearchPaginationBar(
+                currentPage = state.currentPage,
+                totalPages = state.totalPages,
+                isLoadingMore = state.isLoadingMore,
+                onPreviousPage = onPreviousPage,
+                onNextPage = onNextPage,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchPaginationBar(
+    currentPage: Int,
+    totalPages: Int,
+    isLoadingMore: Boolean,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        OutlinedButton(
+            onClick = onPreviousPage,
+            enabled = currentPage > 1 && !isLoadingMore,
+        ) {
+            Text("<<")
+        }
+        if (isLoadingMore) {
+            CircularProgressIndicator()
+        } else {
+            Text(
+                text = "$currentPage / $totalPages",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Button(
+            onClick = onNextPage,
+            enabled = currentPage < totalPages && !isLoadingMore,
+        ) {
+            Text(">>")
         }
     }
 }
@@ -110,13 +191,6 @@ private fun SearchField(
 }
 
 @Composable
-private fun CenteredProgress() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
 private fun CenteredMessage(text: String) {
     Box(
         modifier = Modifier
@@ -130,6 +204,13 @@ private fun CenteredMessage(text: String) {
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun CenteredProgress() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
     }
 }
 

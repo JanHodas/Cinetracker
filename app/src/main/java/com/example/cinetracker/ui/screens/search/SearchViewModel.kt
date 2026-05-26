@@ -10,7 +10,6 @@ import com.example.cinetracker.CineTrackApplication
 import com.example.cinetracker.data.network.NetworkConnectivityObserver
 import com.example.cinetracker.data.repository.MovieRepository
 import com.example.cinetracker.domain.model.MediaItem
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,29 +18,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel backing the Search screen. Exposes the current text in [query] and a derived
- * [uiState] that debounces user input, calls the repository and maps results to a [SearchUiState].
- *
- * The ViewModel survives configuration changes, so the rotation test in the spec passes
- * automatically: query text and last results are preserved without any extra plumbing.
- *
- * If a search fails because of a network issue, the screen also auto-recovers when
- * connectivity returns: an internal observer watches [NetworkConnectivityObserver] and
- * fires [retry] on the offline → online transition while the UI is in [SearchUiState.Error].
- *
- * @see DEBOUNCE_MILLIS for the typing settle delay
- * @see MIN_QUERY_LENGTH minimum number of characters before a TMDB call is fired
- */
-@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+@OptIn(FlowPreview::class)
 class SearchViewModel(
     private val movieRepository: MovieRepository,
     networkConnectivityObserver: NetworkConnectivityObserver,
@@ -50,40 +33,7 @@ class SearchViewModel(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    /** Bumped by [retry] (and by the auto-retry observer below) to re-fire the last query. */
-    private val retryTick = MutableStateFlow(0)
-
-    private val searchResultsState: StateFlow<SearchUiState> = combine(
-        _query.debounce(DEBOUNCE_MILLIS).distinctUntilChanged(),
-        retryTick,
-    ) { q, _ -> q }
-        .flatMapLatest { rawQuery ->
-            flow {
-                val trimmed = rawQuery.trim()
-                if (trimmed.length < MIN_QUERY_LENGTH) {
-                    emit(SearchUiState.Idle)
-                    return@flow
-                }
-                emit(SearchUiState.Loading)
-                movieRepository.searchMulti(trimmed).fold(
-                    onSuccess = { results ->
-                        emit(
-                            if (results.isEmpty()) SearchUiState.Empty
-                            else SearchUiState.Success(results)
-                        )
-                    },
-                    onFailure = { throwable ->
-                        emit(SearchUiState.Error(throwable.message ?: UNKNOWN_ERROR))
-                    },
-                )
-            }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MILLIS),
-            initialValue = SearchUiState.Idle,
-        )
-
+    private val searchState = MutableStateFlow(SearchUiState())
     private val savedTmdbIds: StateFlow<Set<Int>> = movieRepository.observeSavedMovies()
         .map { items -> items.map { it.movie.tmdbId }.toSet() }
         .stateIn(
@@ -92,27 +42,40 @@ class SearchViewModel(
             initialValue = emptySet(),
         )
 
+    private var allResults: List<MediaItem> = emptyList()
+    private var loadedRemotePages = 0
+    private var remoteTotalPages = 0
+    private var remoteTotalResults = 0
+
     val uiState: StateFlow<SearchUiState> = combine(
-        searchResultsState,
+        searchState,
         savedTmdbIds,
     ) { state, savedIds ->
-        when (state) {
-            is SearchUiState.Success -> state.copy(savedTmdbIds = savedIds)
-            else -> state
-        }
+        state.copy(savedTmdbIds = savedIds)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MILLIS),
-        initialValue = SearchUiState.Idle,
+        initialValue = SearchUiState(),
     )
 
     init {
-        // Auto-recover: when the device transitions offline → online and we're
-        // currently showing an error, transparently retry the last query.
+        _query
+            .debounce(DEBOUNCE_MILLIS)
+            .map { it.trim() }
+            .distinctUntilChanged()
+            .onEach { trimmed ->
+                if (trimmed.length < MIN_QUERY_LENGTH) {
+                    resetSearch()
+                } else {
+                    performSearch(trimmed)
+                }
+            }
+            .launchIn(viewModelScope)
+
         networkConnectivityObserver.isOnline
             .distinctUntilChanged()
             .onEach { online ->
-                if (online && uiState.value is SearchUiState.Error) {
+                if (online && query.value.trim().length >= MIN_QUERY_LENGTH && searchState.value.errorMessage != null) {
                     retry()
                 }
             }
@@ -128,7 +91,43 @@ class SearchViewModel(
     }
 
     fun retry() {
-        retryTick.value++
+        val trimmed = query.value.trim()
+        if (trimmed.length < MIN_QUERY_LENGTH) return
+        performSearch(trimmed)
+    }
+
+    fun goToPreviousPage() {
+        val current = searchState.value.currentPage
+        if (current <= 1) return
+        updateVisiblePage(current - 1)
+    }
+
+    fun goToNextPage() {
+        val current = searchState.value.currentPage
+        val totalPages = searchState.value.totalPages
+        if (current >= totalPages) return
+
+        viewModelScope.launch {
+            val targetPage = current + 1
+            val requiredItems = minOf(targetPage * RESULTS_PER_PAGE, remoteTotalResults)
+
+            if (allResults.size < requiredItems && loadedRemotePages < remoteTotalPages) {
+                searchState.value = searchState.value.copy(
+                    isLoadingMore = true,
+                    errorMessage = null,
+                )
+                val loaded = ensureResultsForPage(targetPage, query.value.trim())
+                if (!loaded) {
+                    searchState.value = searchState.value.copy(
+                        isLoadingMore = false,
+                        errorMessage = UNKNOWN_ERROR,
+                    )
+                    return@launch
+                }
+            }
+
+            updateVisiblePage(targetPage)
+        }
     }
 
     fun addToWantToWatch(mediaItem: MediaItem) {
@@ -137,9 +136,79 @@ class SearchViewModel(
         }
     }
 
+    private fun performSearch(trimmedQuery: String) {
+        viewModelScope.launch {
+            resetSearch(keepIdle = false)
+            searchState.value = searchState.value.copy(isLoading = true)
+
+            movieRepository.searchMultiPage(trimmedQuery, page = 1).fold(
+                onSuccess = { pageResult ->
+                    allResults = pageResult.items
+                    loadedRemotePages = if (pageResult.items.isEmpty()) 0 else 1
+                    remoteTotalPages = pageResult.totalPages
+                    remoteTotalResults = pageResult.totalResults
+                    updateVisiblePage(1)
+                },
+                onFailure = { throwable ->
+                    resetSearch(keepIdle = false)
+                    searchState.value = SearchUiState(
+                        isIdle = false,
+                        isLoading = false,
+                        errorMessage = throwable.message ?: UNKNOWN_ERROR,
+                    )
+                },
+            )
+        }
+    }
+
+    private suspend fun ensureResultsForPage(targetPage: Int, query: String): Boolean {
+        if (query.length < MIN_QUERY_LENGTH) return false
+
+        val requiredItems = minOf(targetPage * RESULTS_PER_PAGE, remoteTotalResults)
+        while (allResults.size < requiredItems && loadedRemotePages < remoteTotalPages) {
+            val nextRemotePage = loadedRemotePages + 1
+            val pageResult = movieRepository.searchMultiPage(query, nextRemotePage).getOrElse {
+                return false
+            }
+            allResults = allResults + pageResult.items
+            loadedRemotePages = nextRemotePage
+            remoteTotalPages = pageResult.totalPages
+            remoteTotalResults = pageResult.totalResults
+        }
+        return allResults.size >= requiredItems
+    }
+
+    private fun updateVisiblePage(page: Int) {
+        val totalPages = if (remoteTotalResults == 0) 0 else ((remoteTotalResults - 1) / RESULTS_PER_PAGE) + 1
+        val clampedPage = page.coerceIn(1, totalPages.coerceAtLeast(1))
+        val startIndex = (clampedPage - 1) * RESULTS_PER_PAGE
+        val endIndex = minOf(startIndex + RESULTS_PER_PAGE, allResults.size)
+        val items = if (startIndex >= endIndex) emptyList() else allResults.subList(startIndex, endIndex)
+
+        searchState.value = SearchUiState(
+            isIdle = false,
+            isLoading = false,
+            isLoadingMore = false,
+            items = items,
+            currentPage = clampedPage,
+            totalPages = totalPages,
+            totalResults = remoteTotalResults,
+            errorMessage = null,
+        )
+    }
+
+    private fun resetSearch(keepIdle: Boolean = true) {
+        allResults = emptyList()
+        loadedRemotePages = 0
+        remoteTotalPages = 0
+        remoteTotalResults = 0
+        searchState.value = SearchUiState(isIdle = keepIdle)
+    }
+
     companion object {
         private const val DEBOUNCE_MILLIS = 350L
         private const val MIN_QUERY_LENGTH = 2
+        private const val RESULTS_PER_PAGE = 15
         private const val STATE_FLOW_TIMEOUT_MILLIS = 5_000L
         private const val UNKNOWN_ERROR = "Unknown error"
 
