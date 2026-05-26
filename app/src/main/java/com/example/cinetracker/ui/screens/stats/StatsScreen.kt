@@ -1,8 +1,10 @@
 package com.example.cinetracker.ui.screens.stats
 
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -25,6 +30,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -37,9 +43,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +68,9 @@ fun StatsScreen(
     viewModel: StatsViewModel = viewModel(factory = StatsViewModel.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    var filtersExpanded by rememberSaveable(isLandscape) { mutableStateOf(!isLandscape) }
     val context = LocalContext.current
     val currentLanguage = LanguageManager.currentLanguage(context)
     var languageMenuExpanded by remember { mutableStateOf(false) }
@@ -161,14 +172,47 @@ fun StatsScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            StatusFilterRow(
-                activeFilter = uiState.activeStatusFilter,
-                onFilterSelected = viewModel::setStatusFilter,
-            )
-            MediaTypeFilterRow(
-                activeFilter = uiState.activeMediaTypeFilter,
-                onFilterSelected = viewModel::setMediaTypeFilter,
-            )
+            if (isLandscape) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = { filtersExpanded = !filtersExpanded }) {
+                        Text(
+                            text = stringResource(
+                                if (filtersExpanded) {
+                                    R.string.stats_hide_filters
+                                } else {
+                                    R.string.stats_show_filters
+                                },
+                            ),
+                        )
+                        Icon(
+                            imageVector = if (filtersExpanded) {
+                                Icons.Filled.ExpandLess
+                            } else {
+                                Icons.Filled.ExpandMore
+                            },
+                            contentDescription = null,
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = !isLandscape || filtersExpanded) {
+                Column {
+                    StatusFilterRow(
+                        activeFilter = uiState.activeStatusFilter,
+                        onFilterSelected = viewModel::setStatusFilter,
+                    )
+                    MediaTypeFilterRow(
+                        activeFilter = uiState.activeMediaTypeFilter,
+                        onFilterSelected = viewModel::setMediaTypeFilter,
+                    )
+                }
+            }
 
             if (uiState.totalCount == 0 && uiState.activeStatusFilter == null && uiState.activeMediaTypeFilter == null) {
                 EmptyStats()

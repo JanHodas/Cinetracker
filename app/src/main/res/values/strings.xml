@@ -94,6 +94,9 @@
     <string name="stats_import_error">Import zlyhal — neplatný formát súboru</string>
     <string name="stats_empty">Zatiaľ nemáš žiadne filmy ani seriály.\nPridaj ich cez vyhľadávanie.</string>
 
+    <string name="stats_show_filters">Zobraziť filtre</string>
+    <string name="stats_hide_filters">Skryť filtre</string>
+
     <!-- Media type badges -->
     <string name="badge_movie">Film</string>
     <string name="badge_tv">Seriál</string>

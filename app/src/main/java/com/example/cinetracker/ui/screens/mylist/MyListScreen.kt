@@ -1,6 +1,8 @@
 package com.example.cinetracker.ui.screens.mylist
 
+import android.content.res.Configuration
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
@@ -23,6 +25,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -83,6 +89,9 @@ fun MyListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val reorderEnabled = uiState.activeStatusFilter == null && uiState.activeMediaTypeFilter == null
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    var filtersExpanded by rememberSaveable(isLandscape) { mutableStateOf(!isLandscape) }
     val context = LocalContext.current
     val currentLanguage = LanguageManager.currentLanguage(context)
     var languageMenuExpanded by remember { mutableStateOf(false) }
@@ -135,15 +144,48 @@ fun MyListScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            StatusFilterRow(
-                activeFilter = uiState.activeStatusFilter,
-                onFilterSelected = viewModel::setStatusFilter,
-            )
+            if (isLandscape) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = { filtersExpanded = !filtersExpanded }) {
+                        Text(
+                            text = stringResource(
+                                if (filtersExpanded) {
+                                    R.string.stats_hide_filters
+                                } else {
+                                    R.string.stats_show_filters
+                                },
+                            ),
+                        )
+                        Icon(
+                            imageVector = if (filtersExpanded) {
+                                Icons.Filled.ExpandLess
+                            } else {
+                                Icons.Filled.ExpandMore
+                            },
+                            contentDescription = null,
+                        )
+                    }
+                }
+            }
 
-            MediaTypeFilterRow(
-                activeFilter = uiState.activeMediaTypeFilter,
-                onFilterSelected = viewModel::setMediaTypeFilter,
-            )
+            AnimatedVisibility(visible = !isLandscape || filtersExpanded) {
+                Column {
+                    StatusFilterRow(
+                        activeFilter = uiState.activeStatusFilter,
+                        onFilterSelected = viewModel::setStatusFilter,
+                    )
+
+                    MediaTypeFilterRow(
+                        activeFilter = uiState.activeMediaTypeFilter,
+                        onFilterSelected = viewModel::setMediaTypeFilter,
+                    )
+                }
+            }
 
             if (uiState.items.isEmpty()) {
                 EmptyState(
