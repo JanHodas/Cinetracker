@@ -51,12 +51,12 @@ import com.example.cinetracker.domain.util.TmdbImageUrl
 @Composable
 fun SeasonCard(
     season: Season,
+    modifier: Modifier = Modifier,
     watchedEpisodes: Set<Int> = emptySet(),
     onToggleEpisode: (episodeNumber: Int) -> Unit = {},
     onToggleSeasonWatched: (() -> Unit)? = null,
     canRateSeason: Boolean = false,
     onUpdateSeasonRating: ((Float?) -> Unit)? = null,
-    modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable(season.seasonNumber) { mutableStateOf(false) }
     val watchedCount = watchedEpisodes.size

@@ -1,6 +1,7 @@
 package com.example.cinetracker.data.local
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -69,9 +70,9 @@ abstract class CineTrackDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE movies ADD COLUMN runtime INTEGER DEFAULT NULL")
                 context.getSharedPreferences("cine_track_preferences", Context.MODE_PRIVATE)
-                    .edit()
-                    .remove("last_synced_content_language")
-                    .apply()
+                    .edit {
+                        remove("last_synced_content_language")
+                    }
             }
         }
 

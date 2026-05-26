@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -49,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,19 +72,19 @@ fun StatsScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var filtersExpanded by rememberSaveable(isLandscape) { mutableStateOf(!isLandscape) }
     val context = LocalContext.current
+    val resources = LocalResources.current
     val currentLanguage = LanguageManager.currentLanguage(context)
     var languageMenuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val importSuccessMsg = stringResource(R.string.stats_import_success, 0)
     val importErrorMsg = stringResource(R.string.stats_import_error)
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(resources, importErrorMsg) {
         viewModel.backupEvents.collect { event ->
             when (event) {
                 is BackupEvent.ImportSuccess -> snackbarHostState.showSnackbar(
-                    context.getString(R.string.stats_import_success, event.count),
+                    resources.getString(R.string.stats_import_success, event.count),
                 )
                 is BackupEvent.ImportError -> snackbarHostState.showSnackbar(importErrorMsg)
             }

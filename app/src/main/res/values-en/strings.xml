@@ -86,6 +86,12 @@
     <string name="stats_no_genres">No genres yet</string>
     <string name="stats_genre_count">%1$d×</string>
     <string name="stats_section_empty">No items in this section yet.</string>
+    <string name="stats_total_runtime">Total watch time</string>
+    <string name="stats_runtime_hours">%1$d h %2$d min</string>
+    <string name="stats_export">Export</string>
+    <string name="stats_import">Import</string>
+    <string name="stats_import_success">Imported %1$d items</string>
+    <string name="stats_import_error">Import failed - invalid file format</string>
     <string name="stats_show_filters">Show filters</string>
     <string name="stats_hide_filters">Hide filters</string>
     <string name="stats_empty">You don\'t have any movies or TV shows yet.\nAdd them via search.</string>

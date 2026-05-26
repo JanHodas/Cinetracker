@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
+import androidx.core.content.edit
 import java.util.Locale
 
 object LanguageManager {
@@ -31,9 +32,9 @@ object LanguageManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         if (currentLanguage(context) == language) return
 
-        prefs.edit()
-            .putString(KEY_APP_LANGUAGE, language.tag)
-            .apply()
+        prefs.edit {
+            putString(KEY_APP_LANGUAGE, language.tag)
+        }
 
         context.findActivity()?.recreate()
     }
@@ -50,9 +51,9 @@ object LanguageManager {
 
     fun markLocalizedContentSynced(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString(KEY_LAST_SYNCED_CONTENT_LANGUAGE, currentTmdbLanguage(context))
-            .apply()
+        prefs.edit {
+            putString(KEY_LAST_SYNCED_CONTENT_LANGUAGE, currentTmdbLanguage(context))
+        }
     }
 
     private tailrec fun Context.findActivity(): Activity? = when (this) {
