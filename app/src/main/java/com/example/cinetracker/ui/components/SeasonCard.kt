@@ -213,36 +213,14 @@ fun SeasonCard(
                         season.episodes.forEach { episode ->
                             val isWatched = episode.episodeNumber in watchedEpisodes
 
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                // Watched toggle icon
-                                IconButton(
-                                    onClick = { onToggleEpisode(episode.episodeNumber) },
-                                    modifier = Modifier.size(36.dp),
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    Icon(
-                                        imageVector = if (isWatched) {
-                                            Icons.Filled.CheckCircle
-                                        } else {
-                                            Icons.Outlined.Circle
-                                        },
-                                        contentDescription = stringResource(
-                                            R.string.detail_toggle_episode,
-                                        ),
-                                        tint = if (isWatched) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-
-                                // Episode info
-                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = stringResource(
                                             R.string.detail_episode_label,
@@ -250,7 +228,32 @@ fun SeasonCard(
                                             episode.name,
                                         ),
                                         style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.weight(1f),
                                     )
+                                    IconButton(
+                                        onClick = { onToggleEpisode(episode.episodeNumber) },
+                                        modifier = Modifier.size(36.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isWatched) {
+                                                Icons.Filled.CheckCircle
+                                            } else {
+                                                Icons.Outlined.Circle
+                                            },
+                                            contentDescription = stringResource(
+                                                R.string.detail_toggle_episode,
+                                            ),
+                                            tint = if (isWatched) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
+
+                                Column(modifier = Modifier.fillMaxWidth()) {
                                     val metadata = buildList {
                                         episode.airDate?.let(::add)
                                         episode.runtime?.let {
