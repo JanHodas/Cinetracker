@@ -9,6 +9,8 @@ import androidx.lifecycle.lifecycleScope
 import com.example.cinetracker.ui.CineTrackApp
 import com.example.cinetracker.ui.language.LanguageManager
 import com.example.cinetracker.ui.theme.CineTrackTheme
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -18,11 +20,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val serviceLocator = (application as CineTrackApplication).serviceLocator
         lifecycleScope.launch {
-            (application as CineTrackApplication)
-                .serviceLocator
-                .movieRepository
-                .refreshSavedMediaForCurrentLanguage()
+            serviceLocator.movieRepository.refreshSavedMediaForCurrentLanguage()
+        }
+        lifecycleScope.launch {
+            serviceLocator.networkConnectivityObserver.isOnline
+                .drop(1)
+                .filter { it }
+                .collect {
+                    serviceLocator.movieRepository.refreshSavedMediaForCurrentLanguage()
+                }
         }
         enableEdgeToEdge()
         setContent {

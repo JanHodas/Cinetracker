@@ -21,4 +21,5 @@ data class TvShow(
     val numberOfSeasons: Int,
     val numberOfEpisodes: Int,
     val episodeRunTime: Int? = null,
+    val seasonEpisodeCounts: List<SeasonEpisodeCount> = emptyList(),
 ) : MediaItem

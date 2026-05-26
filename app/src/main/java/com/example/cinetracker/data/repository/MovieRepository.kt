@@ -3,6 +3,7 @@ package com.example.cinetracker.data.repository
 import android.content.Context
 import com.example.cinetracker.data.local.EpisodeWatchCount
 import com.example.cinetracker.data.local.MovieDao
+import com.example.cinetracker.data.local.MovieEntity
 import com.example.cinetracker.data.local.SeasonRatingDao
 import com.example.cinetracker.data.local.SeasonRatingEntity
 import com.example.cinetracker.data.local.WatchedEpisodeDao
@@ -413,12 +414,13 @@ class MovieRepository(
             watchedEpisodeDao.delete(tmdbId, seasonNumber, episodeNumber)
             syncTvStatusWithEpisodeProgress(tmdbId)
         } else {
+            val resolvedRuntime = runtime ?: movieDao.observeByTmdbId(tmdbId).first()?.runtime
             watchedEpisodeDao.upsert(
                 WatchedEpisodeEntity(
                     tmdbId = tmdbId,
                     seasonNumber = seasonNumber,
                     episodeNumber = episodeNumber,
-                    runtime = runtime,
+                    runtime = resolvedRuntime,
                 ),
             )
             syncTvStatusWithEpisodeProgress(tmdbId)
@@ -444,13 +446,14 @@ class MovieRepository(
 
         val nextEpisode = episodes.firstOrNull { (it.seasonNumber to it.episodeNumber) !in watched }
             ?: return false
+        val fallbackRuntime = nextEpisode.runtime ?: savedEntity?.runtime
 
         watchedEpisodeDao.upsert(
             WatchedEpisodeEntity(
                 tmdbId = tmdbId,
                 seasonNumber = nextEpisode.seasonNumber,
                 episodeNumber = nextEpisode.episodeNumber,
-                runtime = nextEpisode.runtime,
+                runtime = fallbackRuntime,
             ),
         )
         if (savedEntity != null) {
@@ -468,7 +471,7 @@ class MovieRepository(
                     tmdbId = tvShow.tmdbId,
                     seasonNumber = ep.seasonNumber,
                     episodeNumber = ep.episodeNumber,
-                    runtime = ep.runtime,
+                    runtime = ep.runtime ?: tvShow.episodeRunTime,
                 ),
             )
         }
@@ -476,13 +479,14 @@ class MovieRepository(
 
     /** Marks all episodes in a specific season as watched. */
     suspend fun markSeasonWatched(tmdbId: Int, seasonNumber: Int, episodeRuntimes: List<Pair<Int, Int?>>) {
+        val fallbackRuntime = movieDao.observeByTmdbId(tmdbId).first()?.runtime
         episodeRuntimes.forEach { (episodeNumber, runtime) ->
             watchedEpisodeDao.upsert(
                 WatchedEpisodeEntity(
                     tmdbId = tmdbId,
                     seasonNumber = seasonNumber,
                     episodeNumber = episodeNumber,
-                    runtime = runtime,
+                    runtime = runtime ?: fallbackRuntime,
                 ),
             )
         }
@@ -522,8 +526,9 @@ class MovieRepository(
     suspend fun refreshSavedMediaForCurrentLanguage() {
         val needsLanguageRefresh = LanguageManager.shouldRefreshLocalizedContent(applicationContext)
         val needsMovieRuntimeRefresh = movieDao.hasItemsWithoutRuntime()
+        val needsSeasonStructureRefresh = movieDao.hasTvItemsWithoutSeasonEpisodeCounts()
         val needsEpisodeRuntimeRefresh = watchedEpisodeDao.hasEpisodesWithoutRuntime()
-        if (!needsLanguageRefresh && !needsMovieRuntimeRefresh && !needsEpisodeRuntimeRefresh) return
+        if (!needsLanguageRefresh && !needsMovieRuntimeRefresh && !needsSeasonStructureRefresh && !needsEpisodeRuntimeRefresh) return
 
         val savedItems = movieDao.observeAll().first()
         savedItems.forEach { entity ->
@@ -547,8 +552,11 @@ class MovieRepository(
                 },
             )
 
-            if (entity.mediaType == "tv" && needsEpisodeRuntimeRefresh) {
-                backfillEpisodeRuntimes(entity.tmdbId)
+            if (entity.mediaType == "tv") {
+                tvEpisodeCache.remove(entity.tmdbId)
+                if (needsEpisodeRuntimeRefresh) {
+                    backfillEpisodeRuntimes(entity.tmdbId)
+                }
             }
         }
 
@@ -556,7 +564,7 @@ class MovieRepository(
     }
 
     private suspend fun backfillEpisodeRuntimes(tmdbId: Int) {
-        val episodes = getTvEpisodeDetails(tmdbId) ?: return
+        val episodes = getTvEpisodeDetails(tmdbId, forceRefresh = true) ?: return
         val runtimeMap = episodes.associate { (it.seasonNumber to it.episodeNumber) to it.runtime }
         val watchedEpisodes = watchedEpisodeDao.getByTmdbId(tmdbId)
         watchedEpisodes.filter { it.runtime == null }.forEach { entity ->
@@ -575,11 +583,25 @@ class MovieRepository(
 
     private data class EpisodeInfo(val seasonNumber: Int, val episodeNumber: Int, val runtime: Int?)
 
-    private suspend fun getTvEpisodeDetails(tmdbId: Int): List<EpisodeInfo>? {
-        tvEpisodeCache[tmdbId]?.let { return it }
+    private suspend fun getTvEpisodeDetails(tmdbId: Int, forceRefresh: Boolean = false): List<EpisodeInfo>? {
+        if (forceRefresh) {
+            tvEpisodeCache.remove(tmdbId)
+        } else {
+            tvEpisodeCache[tmdbId]?.let { return it }
+        }
+        val localEntity = movieDao.observeByTmdbId(tmdbId).first()
         val detail = runCatching {
             tmdbApi.getTvDetail(tmdbId, language = currentTmdbLanguage())
-        }.getOrNull() ?: return null
+        }.getOrNull()
+        val fallbackRuntime = detail?.episodeRunTime?.firstOrNull() ?: localEntity?.runtime
+
+        if (detail == null) {
+            val localEpisodes = localEntity?.toOfflineEpisodeDetails()
+            if (localEpisodes != null) {
+                tvEpisodeCache[tmdbId] = localEpisodes
+            }
+            return localEpisodes
+        }
 
         val episodes = mutableListOf<EpisodeInfo>()
         detail.seasons
@@ -591,16 +613,54 @@ class MovieRepository(
                 }.getOrNull()
                 if (seasonDetail != null) {
                     seasonDetail.episodes.forEach { ep ->
-                        episodes.add(EpisodeInfo(season.seasonNumber, ep.episodeNumber, ep.runtime))
+                        episodes.add(
+                            EpisodeInfo(
+                                season.seasonNumber,
+                                ep.episodeNumber,
+                                ep.runtime ?: fallbackRuntime,
+                            ),
+                        )
                     }
                 } else {
                     for (epNum in 1..season.episodeCount) {
-                        episodes.add(EpisodeInfo(season.seasonNumber, epNum, null))
+                        episodes.add(EpisodeInfo(season.seasonNumber, epNum, fallbackRuntime))
                     }
                 }
             }
         tvEpisodeCache[tmdbId] = episodes
         return episodes
+    }
+
+    private fun MovieEntity.toOfflineEpisodeDetails(): List<EpisodeInfo>? {
+        if (mediaType != "tv") return null
+
+        val counts = seasonEpisodeCounts
+            .filter { it.seasonNumber > 0 && it.episodeCount > 0 }
+            .sortedBy { it.seasonNumber }
+
+        if (counts.isNotEmpty()) {
+            return counts.flatMap { season ->
+                (1..season.episodeCount).map { episodeNumber ->
+                    EpisodeInfo(
+                        seasonNumber = season.seasonNumber,
+                        episodeNumber = episodeNumber,
+                        runtime = runtime,
+                    )
+                }
+            }
+        }
+
+        if ((numberOfEpisodes ?: 0) > 0) {
+            return (1..checkNotNull(numberOfEpisodes)).map { episodeNumber ->
+                EpisodeInfo(
+                    seasonNumber = 1,
+                    episodeNumber = episodeNumber,
+                    runtime = runtime,
+                )
+            }
+        }
+
+        return null
     }
 
     private suspend fun getTvSeasonStructure(tmdbId: Int): List<Pair<Int, Int>>? {

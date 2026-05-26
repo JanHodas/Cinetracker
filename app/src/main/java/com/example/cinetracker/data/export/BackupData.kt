@@ -1,5 +1,6 @@
 package com.example.cinetracker.data.export
 
+import com.example.cinetracker.domain.model.SeasonEpisodeCount
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -10,7 +11,7 @@ data class BackupData(
     val seasonRatings: List<BackupSeasonRating> = emptyList(),
 ) {
     companion object {
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
     }
 }
 
@@ -32,6 +33,7 @@ data class BackupMovie(
     val numberOfSeasons: Int? = null,
     val numberOfEpisodes: Int? = null,
     val runtime: Int? = null,
+    val seasonEpisodeCounts: List<SeasonEpisodeCount> = emptyList(),
     val sortOrder: Int = 0,
 )
 

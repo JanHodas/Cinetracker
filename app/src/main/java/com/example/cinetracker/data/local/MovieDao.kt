@@ -103,6 +103,10 @@ interface MovieDao {
     @Query("SELECT EXISTS(SELECT 1 FROM movies WHERE runtime IS NULL LIMIT 1)")
     suspend fun hasItemsWithoutRuntime(): Boolean
 
+    /** Returns true if there are saved TV shows missing cached season episode counts. */
+    @Query("SELECT EXISTS(SELECT 1 FROM movies WHERE mediaType = 'tv' AND seasonEpisodeCounts = '[]' LIMIT 1)")
+    suspend fun hasTvItemsWithoutSeasonEpisodeCounts(): Boolean
+
     // ── Runtime stats ─────────────────────────────────────────────────
     // Movies: SUM(runtime) directly.
     // TV: SUM(perEpisodeRuntime × watchedEpisodeCount) via correlated subquery.

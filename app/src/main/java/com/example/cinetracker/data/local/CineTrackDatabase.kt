@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [MovieEntity::class, WatchedEpisodeEntity::class, SeasonRatingEntity::class],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -158,6 +158,16 @@ abstract class CineTrackDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration from v8 -> v9: adds cached per-season episode counts for
+         * offline TV episode progress actions.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE movies ADD COLUMN seasonEpisodeCounts TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
         @Volatile
         private var instance: CineTrackDatabase? = null
 
@@ -180,6 +190,7 @@ abstract class CineTrackDatabase : RoomDatabase() {
                         MIGRATION_5_6,
                         MIGRATION_6_7,
                         MIGRATION_7_8,
+                        MIGRATION_8_9,
                     )
                     .build()
                     .also { instance = it }

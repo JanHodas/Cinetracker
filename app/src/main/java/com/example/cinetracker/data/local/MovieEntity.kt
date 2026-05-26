@@ -2,6 +2,7 @@ package com.example.cinetracker.data.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.cinetracker.domain.model.SeasonEpisodeCount
 import com.example.cinetracker.domain.model.WatchStatus
 
 /**
@@ -36,6 +37,8 @@ data class MovieEntity(
     val numberOfEpisodes: Int? = null,
     /** Runtime in minutes. For movies: film length. For TV: total estimated (episodes × avg episode length). */
     val runtime: Int? = null,
+    /** TV-only: cached episode counts per season for offline episode progress actions. */
+    val seasonEpisodeCounts: List<SeasonEpisodeCount> = emptyList(),
     /** User-defined sort position. Lower values appear first. */
     val sortOrder: Int = 0,
 )

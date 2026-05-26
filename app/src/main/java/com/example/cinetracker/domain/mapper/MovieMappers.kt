@@ -15,6 +15,7 @@ import com.example.cinetracker.domain.model.MediaItem
 import com.example.cinetracker.domain.model.Movie
 import com.example.cinetracker.domain.model.SavedMovie
 import com.example.cinetracker.domain.model.Season
+import com.example.cinetracker.domain.model.SeasonEpisodeCount
 import com.example.cinetracker.domain.model.TvShow
 import com.example.cinetracker.domain.model.WatchStatus
 
@@ -69,6 +70,7 @@ fun MovieEntity.toDomain(): SavedMovie = SavedMovie(
             numberOfSeasons = numberOfSeasons ?: 0,
             numberOfEpisodes = numberOfEpisodes ?: 0,
             episodeRunTime = runtime,
+            seasonEpisodeCounts = seasonEpisodeCounts,
         )
         else -> Movie(
             tmdbId = tmdbId,
@@ -122,6 +124,7 @@ fun MediaItem.toEntity(
         is Movie -> runtime
         is TvShow -> episodeRunTime
     },
+    seasonEpisodeCounts = (this as? TvShow)?.seasonEpisodeCounts.orEmpty(),
     sortOrder = sortOrder,
 )
 
@@ -155,6 +158,7 @@ fun TmdbMultiSearchResultDto.TvResult.toDomain(
     tmdbRating = voteAverage.takeIf { it > 0f },
     numberOfSeasons = 0,    // not available in search results
     numberOfEpisodes = 0,
+    seasonEpisodeCounts = emptyList(),
 )
 
 // ── TV detail DTOs → Domain ────────────────────────────────────────
@@ -172,6 +176,15 @@ fun TmdbTvDetailDto.toDomain(): TvShow = TvShow(
     numberOfSeasons = numberOfSeasons,
     numberOfEpisodes = numberOfEpisodes,
     episodeRunTime = episodeRunTime.firstOrNull(),
+    seasonEpisodeCounts = seasons
+        .filter { it.seasonNumber > 0 && it.episodeCount > 0 }
+        .sortedBy { it.seasonNumber }
+        .map { season ->
+            SeasonEpisodeCount(
+                seasonNumber = season.seasonNumber,
+                episodeCount = season.episodeCount,
+            )
+        },
 )
 
 /** Converts a season summary (from TV detail response) into the domain [Season] model. */

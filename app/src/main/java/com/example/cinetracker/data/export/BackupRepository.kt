@@ -77,6 +77,7 @@ class BackupRepository(
         numberOfSeasons = numberOfSeasons,
         numberOfEpisodes = numberOfEpisodes,
         runtime = runtime,
+        seasonEpisodeCounts = seasonEpisodeCounts,
         sortOrder = sortOrder,
     )
 
@@ -112,6 +113,7 @@ class BackupRepository(
         numberOfSeasons = numberOfSeasons,
         numberOfEpisodes = numberOfEpisodes,
         runtime = runtime,
+        seasonEpisodeCounts = seasonEpisodeCounts,
         sortOrder = sortOrder,
     )
 

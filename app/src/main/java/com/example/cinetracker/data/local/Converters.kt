@@ -1,6 +1,7 @@
 package com.example.cinetracker.data.local
 
 import androidx.room.TypeConverter
+import com.example.cinetracker.domain.model.SeasonEpisodeCount
 import com.example.cinetracker.domain.model.WatchStatus
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -23,6 +24,12 @@ class Converters {
 
     @TypeConverter
     fun toStringList(value: String): List<String> = json.decodeFromString(value)
+
+    @TypeConverter
+    fun fromSeasonEpisodeCounts(value: List<SeasonEpisodeCount>): String = json.encodeToString(value)
+
+    @TypeConverter
+    fun toSeasonEpisodeCounts(value: String): List<SeasonEpisodeCount> = json.decodeFromString(value)
 
     @TypeConverter
     fun fromWatchStatus(status: WatchStatus): String = status.name
