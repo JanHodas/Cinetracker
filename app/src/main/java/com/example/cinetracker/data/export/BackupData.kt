@@ -32,6 +32,7 @@ data class BackupMovie(
     val numberOfSeasons: Int? = null,
     val numberOfEpisodes: Int? = null,
     val runtime: Int? = null,
+    val sortOrder: Int = 0,
 )
 
 @Serializable

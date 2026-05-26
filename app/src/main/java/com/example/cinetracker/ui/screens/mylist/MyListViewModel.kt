@@ -123,6 +123,14 @@ class MyListViewModel(
         }
     }
 
+    fun persistReorder(orderedTmdbIds: List<Int>) {
+        viewModelScope.launch {
+            movieRepository.updateSortOrders(
+                orderedTmdbIds.mapIndexed { index, tmdbId -> tmdbId to index }.toMap(),
+            )
+        }
+    }
+
     companion object {
         const val MEDIA_TYPE_MOVIE = "movie"
         const val MEDIA_TYPE_TV = "tv"

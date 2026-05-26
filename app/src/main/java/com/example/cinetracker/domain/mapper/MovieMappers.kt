@@ -98,6 +98,7 @@ fun MediaItem.toEntity(
     userRating: Float? = null,
     note: String = "",
     dateAdded: Long = System.currentTimeMillis(),
+    sortOrder: Int = 0,
 ): MovieEntity = MovieEntity(
     tmdbId = tmdbId,
     title = title,
@@ -121,6 +122,7 @@ fun MediaItem.toEntity(
         is Movie -> runtime
         is TvShow -> episodeRunTime
     },
+    sortOrder = sortOrder,
 )
 
 // ── Multi-search result → Domain ───────────────────────────────────

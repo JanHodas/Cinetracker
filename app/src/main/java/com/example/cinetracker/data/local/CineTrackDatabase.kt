@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [MovieEntity::class, WatchedEpisodeEntity::class, SeasonRatingEntity::class],
-    version = 6,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -102,6 +102,62 @@ abstract class CineTrackDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration from v6 -> v7: adds `sortOrder` column for user-defined
+         * list ordering via drag and drop.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE movies ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * Migration from v7 -> v8: converts the earlier `displayOrder`-based draft
+         * schema into the final `sortOrder` schema used by drag and drop.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `movies_new` (" +
+                        "`tmdbId` INTEGER NOT NULL, " +
+                        "`title` TEXT NOT NULL, " +
+                        "`overview` TEXT NOT NULL, " +
+                        "`posterPath` TEXT, " +
+                        "`backdropPath` TEXT, " +
+                        "`releaseDate` TEXT, " +
+                        "`genres` TEXT NOT NULL, " +
+                        "`tmdbRating` REAL, " +
+                        "`watchStatus` TEXT NOT NULL, " +
+                        "`userRating` REAL, " +
+                        "`note` TEXT NOT NULL, " +
+                        "`dateAdded` INTEGER NOT NULL, " +
+                        "`mediaType` TEXT NOT NULL DEFAULT 'movie', " +
+                        "`numberOfSeasons` INTEGER, " +
+                        "`numberOfEpisodes` INTEGER, " +
+                        "`runtime` INTEGER, " +
+                        "`sortOrder` INTEGER NOT NULL DEFAULT 0, " +
+                        "PRIMARY KEY(`tmdbId`))",
+                )
+                db.execSQL(
+                    "INSERT INTO `movies_new` (" +
+                        "`tmdbId`, `title`, `overview`, `posterPath`, `backdropPath`, `releaseDate`, " +
+                        "`genres`, `tmdbRating`, `watchStatus`, `userRating`, `note`, `dateAdded`, " +
+                        "`mediaType`, `numberOfSeasons`, `numberOfEpisodes`, `runtime`, `sortOrder`) " +
+                        "SELECT " +
+                        "`tmdbId`, `title`, `overview`, `posterPath`, `backdropPath`, `releaseDate`, " +
+                        "`genres`, `tmdbRating`, `watchStatus`, `userRating`, `note`, `dateAdded`, " +
+                        "`mediaType`, `numberOfSeasons`, `numberOfEpisodes`, `runtime`, " +
+                        "(SELECT COUNT(*) FROM movies older " +
+                        "WHERE older.displayOrder > movies.displayOrder " +
+                        "OR (older.displayOrder = movies.displayOrder AND older.dateAdded > movies.dateAdded)) " +
+                        "FROM movies",
+                )
+                db.execSQL("DROP TABLE `movies`")
+                db.execSQL("ALTER TABLE `movies_new` RENAME TO `movies`")
+            }
+        }
+
         @Volatile
         private var instance: CineTrackDatabase? = null
 
@@ -122,6 +178,8 @@ abstract class CineTrackDatabase : RoomDatabase() {
                         migration3to4(context),
                         MIGRATION_4_5,
                         MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
                     )
                     .build()
                     .also { instance = it }

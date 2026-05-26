@@ -36,4 +36,6 @@ data class MovieEntity(
     val numberOfEpisodes: Int? = null,
     /** Runtime in minutes. For movies: film length. For TV: total estimated (episodes × avg episode length). */
     val runtime: Int? = null,
+    /** User-defined sort position. Lower values appear first. */
+    val sortOrder: Int = 0,
 )

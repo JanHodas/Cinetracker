@@ -77,6 +77,7 @@ class BackupRepository(
         numberOfSeasons = numberOfSeasons,
         numberOfEpisodes = numberOfEpisodes,
         runtime = runtime,
+        sortOrder = sortOrder,
     )
 
     private fun WatchedEpisodeEntity.toBackup() = BackupWatchedEpisode(
@@ -111,6 +112,7 @@ class BackupRepository(
         numberOfSeasons = numberOfSeasons,
         numberOfEpisodes = numberOfEpisodes,
         runtime = runtime,
+        sortOrder = sortOrder,
     )
 
     private fun BackupWatchedEpisode.toEntity() = WatchedEpisodeEntity(

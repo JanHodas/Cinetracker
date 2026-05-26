@@ -246,7 +246,9 @@ class MovieRepository(
         note: String = "",
         dateAdded: Long = System.currentTimeMillis(),
     ) {
-        movieDao.upsert(mediaItem.toEntity(watchStatus, userRating, note, dateAdded))
+        val existingSortOrder = movieDao.getSortOrder(mediaItem.tmdbId)
+            ?: ((movieDao.getMaxSortOrder() ?: -1) + 1)
+        movieDao.upsert(mediaItem.toEntity(watchStatus, userRating, note, dateAdded, existingSortOrder))
         if (mediaItem is TvShow && watchStatus == WatchStatus.WATCHED) {
             markAllEpisodesWatched(mediaItem)
         }
@@ -289,12 +291,14 @@ class MovieRepository(
         status: WatchStatus,
         currentSaved: SavedMovie,
     ) {
+        val existingSortOrder = movieDao.getSortOrder(tmdbId) ?: 0
         movieDao.upsert(
             mediaItem.toEntity(
                 watchStatus = status,
                 userRating = currentSaved.userRating,
                 note = currentSaved.note,
                 dateAdded = currentSaved.dateAdded,
+                sortOrder = existingSortOrder,
             ),
         )
         if (mediaItem is TvShow) {
@@ -311,24 +315,28 @@ class MovieRepository(
 
     /** Update the user rating of an already-saved item. */
     suspend fun updateRating(mediaItem: MediaItem, rating: Float?, currentSaved: SavedMovie) {
+        val existingSortOrder = movieDao.getSortOrder(mediaItem.tmdbId) ?: 0
         movieDao.upsert(
             mediaItem.toEntity(
                 watchStatus = currentSaved.watchStatus,
                 userRating = rating,
                 note = currentSaved.note,
                 dateAdded = currentSaved.dateAdded,
+                sortOrder = existingSortOrder,
             ),
         )
     }
 
     /** Update the personal note of an already-saved item. */
     suspend fun updateNote(mediaItem: MediaItem, note: String, currentSaved: SavedMovie) {
+        val existingSortOrder = movieDao.getSortOrder(mediaItem.tmdbId) ?: 0
         movieDao.upsert(
             mediaItem.toEntity(
                 watchStatus = currentSaved.watchStatus,
                 userRating = currentSaved.userRating,
                 note = note,
                 dateAdded = currentSaved.dateAdded,
+                sortOrder = existingSortOrder,
             ),
         )
     }
@@ -366,6 +374,15 @@ class MovieRepository(
             dateAdded = savedMovie.dateAdded,
         )
         deletedItem.watchedEpisodes.forEach { watchedEpisodeDao.upsert(it) }
+    }
+
+    // ── Reordering ──────────────────────────────────────────────────────
+
+    /** Persist new sort order for a list of items (tmdbId → sortOrder). */
+    suspend fun updateSortOrders(orders: Map<Int, Int>) {
+        orders.forEach { (tmdbId, sortOrder) ->
+            movieDao.updateSortOrder(tmdbId, sortOrder)
+        }
     }
 
     // ── Episode tracking ───────────────────────────────────────────────
@@ -520,6 +537,7 @@ class MovieRepository(
                 userRating = entity.userRating,
                 note = entity.note,
                 dateAdded = entity.dateAdded,
+                sortOrder = entity.sortOrder,
             )
             movieDao.upsert(
                 if (newEntity.runtime == null && entity.runtime != null) {

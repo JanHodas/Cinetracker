@@ -15,12 +15,12 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MovieDao {
 
-    /** Observe all saved movies ordered by the date they were added (newest first). */
-    @Query("SELECT * FROM movies ORDER BY dateAdded DESC")
+    /** Observe all saved movies ordered by user sort order, then newest first. */
+    @Query("SELECT * FROM movies ORDER BY sortOrder ASC, dateAdded DESC")
     fun observeAll(): Flow<List<MovieEntity>>
 
     /** Observe only movies with a specific [watchStatus]. */
-    @Query("SELECT * FROM movies WHERE watchStatus = :watchStatus ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM movies WHERE watchStatus = :watchStatus ORDER BY sortOrder ASC, dateAdded DESC")
     fun observeByStatus(watchStatus: String): Flow<List<MovieEntity>>
 
     /** One-shot lookup used by DetailViewModel to check if a movie is already saved. */
@@ -43,6 +43,18 @@ interface MovieDao {
     @Query("DELETE FROM movies")
     suspend fun deleteAll()
 
+    /** Get current sortOrder for an item, or null if not found. */
+    @Query("SELECT sortOrder FROM movies WHERE tmdbId = :tmdbId")
+    suspend fun getSortOrder(tmdbId: Int): Int?
+
+    /** Get the highest sortOrder currently assigned, or null if the table is empty. */
+    @Query("SELECT MAX(sortOrder) FROM movies")
+    suspend fun getMaxSortOrder(): Int?
+
+    /** Update sort order for a single item. */
+    @Query("UPDATE movies SET sortOrder = :sortOrder WHERE tmdbId = :tmdbId")
+    suspend fun updateSortOrder(tmdbId: Int, sortOrder: Int)
+
     // ── Unfiltered stats (backward compatibility) ────────────────────
 
     /** Total number of saved items (for Stats screen). */
@@ -64,11 +76,11 @@ interface MovieDao {
     // ── Media-type filtered queries ────────────────────────────────
 
     /** Observe items of a specific [mediaType] (`"movie"` or `"tv"`). */
-    @Query("SELECT * FROM movies WHERE mediaType = :mediaType ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM movies WHERE mediaType = :mediaType ORDER BY sortOrder ASC, dateAdded DESC")
     fun observeByMediaType(mediaType: String): Flow<List<MovieEntity>>
 
     /** Observe items filtered by both [watchStatus] and [mediaType]. */
-    @Query("SELECT * FROM movies WHERE watchStatus = :watchStatus AND mediaType = :mediaType ORDER BY dateAdded DESC")
+    @Query("SELECT * FROM movies WHERE watchStatus = :watchStatus AND mediaType = :mediaType ORDER BY sortOrder ASC, dateAdded DESC")
     fun observeByStatusAndMediaType(watchStatus: String, mediaType: String): Flow<List<MovieEntity>>
 
     /** Total number of items with a given [mediaType]. */
